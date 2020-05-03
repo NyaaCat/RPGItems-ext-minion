@@ -1,0 +1,20 @@
+name: RGMinion
+main: cat.nyaa.rpgitems.minion.MinionExtensionPlugin
+description: "RPGItems' minion extension"
+version: ${version}
+depend: [RPGItems]
+authors: [ReinWD]
+website: "https://github.com/NyaaCat/RPGItems-ext-minion"
+database: false
+api-version: 1.13
+
+commands:
+  rpgitem-minion:
+    description: RPGItems' minion extension
+    permission: rpgitem
+    permission-message: "You do not have the required permission: <permission>"
+    usage: "/<command> [SubCommand...] [Arguments...] or /<command> help"
+
+permissions:
+  rpgitem.minion:
+    default: op
