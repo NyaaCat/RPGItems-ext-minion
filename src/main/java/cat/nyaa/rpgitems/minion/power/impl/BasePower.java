@@ -1,4 +1,4 @@
-package cat.nyaa.rpgitems.minion.power;
+package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import org.bukkit.NamespacedKey;
@@ -15,6 +15,10 @@ import java.util.Set;
  */
 public abstract class BasePower extends BasePropertyHolder implements Serializable, Power {
     @Property
+    int cooldown = 0;
+    @Property
+    int cost = 0;
+    @Property
     public String displayName;
     @Property
     @AcceptedValue(preset = Preset.TRIGGERS)
@@ -25,6 +29,14 @@ public abstract class BasePower extends BasePropertyHolder implements Serializab
     public Set<String> conditions = new HashSet<>();
     @Property
     public String requiredContext;
+
+    public int getCooldown() {
+        return cooldown;
+    }
+
+    public int getCost() {
+        return cost;
+    }
 
     @Override
     public String displayName() {
