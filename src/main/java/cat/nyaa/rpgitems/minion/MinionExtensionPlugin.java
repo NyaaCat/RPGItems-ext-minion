@@ -1,6 +1,7 @@
 package cat.nyaa.rpgitems.minion;
 
 import cat.nyaa.rpgitems.minion.config.ConfigMain;
+import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -26,6 +27,12 @@ public class MinionExtensionPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(mainEvents, this);
         PowerManager.registerPowers(this, "cat.nyaa.rpgitems.minion.power.impl");
         PowerManager.registerMarkers(this, "cat.nyaa.rpgitems.minion.power.markers");
+    }
+
+    @Override
+    public void onDisable() {
+        super.onDisable();
+        MinionManager.getInstance().clear();
     }
 
     public void onReload(){

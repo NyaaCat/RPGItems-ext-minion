@@ -1,9 +1,21 @@
 package cat.nyaa.rpgitems.minion.minion;
 
-public interface IMinion extends Targetable, EntityHolder {
+import org.bukkit.OfflinePlayer;
+import org.bukkit.inventory.ItemStack;
+import think.rpgitems.item.RPGItem;
+
+import java.util.Optional;
+
+public interface IMinion extends Targetable, EntityHolderNonpersistent {
+    OfflinePlayer getOwner();
+    void setOwner(OfflinePlayer player);
+    int getSlotCost();
+    ItemStack getItemStack();
+    Optional<RPGItem> getRPGItem();
 
     void ambientAction();
     MinionStatus getStatus();
 
-    int getSlotCost();
+    void tick(int minionTick);
+
 }

@@ -1,13 +1,13 @@
 package cat.nyaa.rpgitems.minion.events;
 
+import cat.nyaa.rpgitems.minion.minion.IMinion;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.bukkit.util.Vector;
 
-public class MinionAttackEvent extends Event {
+public class MinionAttackEvent extends MinionEvent {
     LivingEntity attacker;
     Entity source;
     Location fromLocation;
@@ -23,8 +23,8 @@ public class MinionAttackEvent extends Event {
         return handlerList;
     }
 
-    public MinionAttackEvent(LivingEntity attacker, Entity source, Location fromLocation, Vector towards) {
-        super();
+    public MinionAttackEvent(IMinion minion, LivingEntity attacker, Entity source, Location fromLocation, Vector towards) {
+        super(minion);
         this.attacker = attacker;
         this.source = source;
         this.fromLocation = fromLocation;

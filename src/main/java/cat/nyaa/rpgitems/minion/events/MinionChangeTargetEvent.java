@@ -1,23 +1,23 @@
 package cat.nyaa.rpgitems.minion.events;
 
+import cat.nyaa.rpgitems.minion.minion.IMinion;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
-import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-public class MinionChangeTargetEvent extends Event {
+public class MinionChangeTargetEvent extends MinionEvent {
     Entity source;
     Entity target = null;
     Location targetLocation = null;
 
-    public MinionChangeTargetEvent(Entity source, Entity target) {
-        super();
+    public MinionChangeTargetEvent(IMinion minion, Entity source, Entity target) {
+        super(minion);
         this.source = source;
         this.target = target;
     }
 
-    public MinionChangeTargetEvent(Entity source, Location targetLocation) {
-        super();
+    public MinionChangeTargetEvent(IMinion minion, Entity source, Location targetLocation) {
+        super(minion);
         this.source = source;
         this.targetLocation = targetLocation;
     }

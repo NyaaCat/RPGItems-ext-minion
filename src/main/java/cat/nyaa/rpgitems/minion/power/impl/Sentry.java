@@ -1,7 +1,10 @@
 package cat.nyaa.rpgitems.minion.power.impl;
 
-import cat.nyaa.rpgitems.minion.minion.impl.ISentry;
+import cat.nyaa.rpgitems.minion.events.MinionSpawnEvent;
+import cat.nyaa.rpgitems.minion.minion.MinionManager;
+import cat.nyaa.rpgitems.minion.minion.impl.MinionSentry;
 import cat.nyaa.rpgitems.minion.minion.impl.enums.SentryTypes;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -15,15 +18,13 @@ import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.inventory.ItemStack;
 import think.rpgitems.event.BeamEndEvent;
 import think.rpgitems.event.BeamHitBlockEvent;
-import think.rpgitems.item.RPGItem;
 import think.rpgitems.power.*;
 import think.rpgitems.utils.cast.CastUtils;
 
 import static think.rpgitems.power.Utils.checkCooldown;
 
 @Meta(defaultTrigger = "RIGHT_CLICK", implClass = Sentry.Impl.class)
-public class Sentry extends BaseMinion implements ISentry {
-
+public class Sentry extends BaseMinionPower {
     @Property
     SentryTypes type = SentryTypes.REGULAR;
     @Property
@@ -38,16 +39,6 @@ public class Sentry extends BaseMinion implements ISentry {
     }
 
     @Override
-    public Sentry getSentryPower() {
-        return this;
-    }
-
-    @Override
-    public RPGItem getRPGItem() {
-        return getItem();
-    }
-
-    @Override
     public String displayText() {
         return "summon a Sentry to fight for you";
     }
@@ -58,11 +49,6 @@ public class Sentry extends BaseMinion implements ISentry {
     }
 
     public class Impl implements PowerRightClick, PowerLeftClick, PowerPlain, PowerSneak, PowerLocation, PowerBeamHit, PowerHit, PowerHitTaken, PowerOffhandClick, PowerBowShoot, PowerTick, PowerProjectileHit, PowerProjectileLaunch, PowerHurt, PowerSprint{
-
-        private PowerResult<Void> fire(Location targetLocation){
-            //todo spawn and track sentry.
-            return PowerResult.ok();
-        }
 
         private Location getTargetLocation(LivingEntity player){
             CastUtils.CastLocation castLocation = CastUtils.rayTrace(player, player.getEyeLocation(), player.getEyeLocation().getDirection(), getSpawnRange());
@@ -78,7 +64,7 @@ public class Sentry extends BaseMinion implements ISentry {
         public PowerResult<Void> fire(Player player, ItemStack stack) {
             if (!checkCooldown(getPower(), player, getCooldown(), true, true)) return PowerResult.cd();
             if (!getItem().consumeDurability(stack, getCost())) return PowerResult.cost();
-            return fire(getTargetLocation(player));
+            return fire(player, stack, getTargetLocation(player));
         }
 
         @Override
@@ -95,14 +81,14 @@ public class Sentry extends BaseMinion implements ISentry {
         public PowerResult<Void> hitBlock(Player player, ItemStack stack, Location location, BeamHitBlockEvent event) {
             if (!checkCooldown(getPower(), player, getCooldown(), true, true)) return PowerResult.cd();
             if (!getItem().consumeDurability(stack, getCost())) return PowerResult.cost();
-            return fire(event.getLocation());
+            return fire(player, stack, event.getLocation());
         }
 
         @Override
         public PowerResult<Void> beamEnd(Player player, ItemStack stack, Location location, BeamEndEvent event) {
             if (!checkCooldown(getPower(), player, getCooldown(), true, true)) return PowerResult.cd();
             if (!getItem().consumeDurability(stack, getCost())) return PowerResult.cost();
-            return fire(event.getLocation());
+            return fire(player, stack, event.getLocation());
         }
 
         @Override
@@ -116,7 +102,7 @@ public class Sentry extends BaseMinion implements ISentry {
         public PowerResult<Double> hit(Player player, ItemStack stack, LivingEntity entity, double damage, EntityDamageByEntityEvent event) {
             if (!checkCooldown(getPower(), player, getCooldown(), true, true)) return PowerResult.cd();
             if (!getItem().consumeDurability(stack, getCost())) return PowerResult.cost();
-            return fire(entity.getLocation()).with(damage);
+            return fire(player, stack, entity.getLocation()).with(damage);
         }
 
         @Override
@@ -133,7 +119,15 @@ public class Sentry extends BaseMinion implements ISentry {
         public PowerResult<Void> fire(Player player, ItemStack stack, Location location) {
             if (!checkCooldown(getPower(), player, getCooldown(), true, true)) return PowerResult.cd();
             if (!getItem().consumeDurability(stack, getCost())) return PowerResult.cost();
-            return fire(location);
+            MinionSentry minionSentry = new MinionSentry(player, Sentry.this, stack);
+            MinionSpawnEvent minionSpawnEvent = new MinionSpawnEvent(minionSentry, location);
+            Bukkit.getPluginManager().callEvent(minionSpawnEvent);
+            if (minionSpawnEvent.isCanceled()){
+                return PowerResult.fail();
+            }
+            minionSentry.respawn(location);
+            MinionManager.getInstance().registerMinion(player, minionSentry);
+            return PowerResult.ok();
         }
 
         @Override
@@ -154,7 +148,7 @@ public class Sentry extends BaseMinion implements ISentry {
             }else if (hitBlock != null){
                 loc = hitBlock.getLocation().add(0.5,0.5,0.5).add(hitBlockFace.getDirection().multiply(0.5));
             }
-            return fire(loc);
+            return fire(player, stack, loc);
         }
 
         @Override

@@ -1,22 +1,15 @@
 package cat.nyaa.rpgitems.minion.events;
 
+import cat.nyaa.rpgitems.minion.minion.IMinion;
 import org.bukkit.Location;
-import org.bukkit.entity.Entity;
-import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-public class MinionSpawnEvent extends Event {
-    Entity entity;
+public class MinionSpawnEvent extends MinionEvent {
     Location spawnLocation;
 
-    public MinionSpawnEvent(Entity entity, Location spawnLocation) {
-        super();
-        this.entity = entity;
+    public MinionSpawnEvent(IMinion minion, Location spawnLocation) {
+        super(minion);
         this.spawnLocation = spawnLocation;
-    }
-
-    public Entity getEntity() {
-        return entity;
     }
 
     public Location getSpawnLocation() {

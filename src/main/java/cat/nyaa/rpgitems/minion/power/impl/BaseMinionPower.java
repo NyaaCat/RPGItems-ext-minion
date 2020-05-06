@@ -1,9 +1,6 @@
 package cat.nyaa.rpgitems.minion.power.impl;
 
-import cat.nyaa.rpgitems.minion.minion.IMinion;
-import cat.nyaa.rpgitems.minion.minion.MinionStatus;
-import cat.nyaa.rpgitems.minion.minion.MoveType;
-import cat.nyaa.rpgitems.minion.minion.TargetMode;
+import cat.nyaa.rpgitems.minion.minion.*;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -12,16 +9,7 @@ import think.rpgitems.power.Property;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class BaseMinion extends BasePower implements IMinion {
-    protected Entity entity;
-
-    @Override
-    public Entity getEntity() {
-        return entity;
-    }
-
-    protected Entity target;
-    protected Location targetLocation;
+public abstract class BaseMinionPower extends BasePower {
 
     @Property
     EntityType entityType = EntityType.ZOMBIE;
@@ -48,11 +36,6 @@ public abstract class BaseMinion extends BasePower implements IMinion {
 
     {
         tags.add("rpgitems-minion");
-    }
-
-    @Override
-    public int getSlotCost() {
-        return slotCost;
     }
 
     public EntityType getEntityType() {
@@ -91,50 +74,11 @@ public abstract class BaseMinion extends BasePower implements IMinion {
         return targetRange;
     }
 
-    @Override
     public TargetMode getTargetMode() {
         return targetMode;
     }
 
-    public void iTest(){}
-
-    @Override
-    public void attack(Location location) {
-
-    }
-
-    @Override
-    public void attack(Entity entity) {
-
-    }
-
-    @Override
-    public void ambientAction() {
-
-    }
-
-    @Override
-    public MinionStatus getStatus() {
-        return null;
-    }
-
-    @Override
-    public Entity getTarget() {
-        return null;
-    }
-
-    @Override
-    public void setTarget(Entity target) {
-
-    }
-
-    @Override
-    public void respawn() {
-
-    }
-
-    @Override
-    public void despawn() {
-
+    public int getSlotCost() {
+        return slotCost;
     }
 }

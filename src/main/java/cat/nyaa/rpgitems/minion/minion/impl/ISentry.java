@@ -6,5 +6,4 @@ import think.rpgitems.item.RPGItem;
 
 public interface ISentry extends IMinion {
     Sentry getSentryPower();
-    RPGItem getRPGItem();
 }
