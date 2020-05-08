@@ -25,7 +25,7 @@ public class MinionCommand extends CommandReceiver {
         super(plugin, _i18n);
     }
 
-    @SubCommand(value = "max", tabCompleter = "maxCompleter")
+    @SubCommand(value = "max", permission = "rpgitem.minion", tabCompleter = "maxCompleter")
     public void onMax(CommandSender sender, Arguments arguments){
         Player player = arguments.nextPlayer();
         int max = arguments.nextInt();

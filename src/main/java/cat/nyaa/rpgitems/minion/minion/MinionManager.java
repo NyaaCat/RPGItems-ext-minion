@@ -7,7 +7,9 @@ import cat.nyaa.rpgitems.minion.utils.BaseTicker;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import think.rpgitems.power.Utils;
 
 import javax.xml.crypto.Data;
 import java.util.*;
@@ -98,7 +100,24 @@ public class MinionManager {
             removeMinion(iMinion);
             return;
         }
-        //todo
+        if (minionTick%20 == 0){
+            boolean ticked = false;
+            Entity entity = iMinion.getEntity();
+            if (entity == null){
+                iMinion.tick(minionTick);
+                ticked = true;
+            }
+            Set<String> scoreboardTags = entity.getScoreboardTags();
+            if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
+                entity.addScoreboardTag(Utils.INVALID_TARGET);
+            }
+            if (entity instanceof LivingEntity) {
+                ((LivingEntity) entity).setAI(false);
+            }
+            if (ticked){
+                return;
+            }
+        }
         iMinion.tick(minionTick);
     }
 

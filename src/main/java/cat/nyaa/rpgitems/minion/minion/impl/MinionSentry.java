@@ -85,7 +85,6 @@ public class MinionSentry extends BaseMinion implements ISentry {
     @Override
     public void tick(int minionTick) {
         super.tick(minionTick);
-        attackCooldown--;
     }
 
     @Override

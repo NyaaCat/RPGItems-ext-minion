@@ -1,6 +1,7 @@
 package cat.nyaa.rpgitems.minion.minion;
 
 import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
+import cat.nyaa.rpgitems.minion.utils.Utils;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -127,11 +128,16 @@ public class EntityRotater implements Rotatable {
                 }
                 Vector targetDirection = eyeLocation.clone().subtract(selfLocation).toVector();
 
-                double toRotate = Math.toDegrees(selfLocation.clone().getDirection().setY(0).angle(targetDirection.clone().setY(0)));
+                double toRotate = Math.toDegrees(Utils.angle(
+                        selfLocation.clone().getDirection().setY(0),
+                        targetDirection.clone().setY(0))
+                );
                 if (toRotate > 180){
                     toRotate -= 360;
                 }
-                double toPitch = -selfLocation.getPitch() - Math.toDegrees(targetDirection.clone().setY(0).angle(targetDirection));
+                double toPitch = -selfLocation.getPitch() + Math.toDegrees(
+                        Utils.angle(targetDirection.clone().setY(0), targetDirection)
+                );
 
                 int rSign = toRotate >= 0 ? 1 : -1;
                 int pSign = toPitch >= 0 ? 1 : -1;
@@ -144,7 +150,7 @@ public class EntityRotater implements Rotatable {
 
                 trackedEntity.setRotation((float) (selfLocation.getYaw() + dRotate), ((float) (selfLocation.getPitch() + dPitch)));
 
-                if (Math.abs(dRotate) < Math.abs(maxTickRotation)) {
+                if (Math.abs(dRotate) < Math.abs(maxTickRotation) && Math.abs(dPitch) < Math.abs(maxTickPitch)) {
                     finish();
                 }
             }catch (Exception e){

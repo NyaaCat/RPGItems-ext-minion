@@ -17,6 +17,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import think.rpgitems.item.ItemManager;
@@ -114,6 +116,28 @@ public class MainEvents implements Listener {
                     extraSlots.addAndGet(sum);
                 });
         event.setMax(extraSlots.get() + playerData.slotMax);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractAtEntityEvent event) {
+        IMinion iMinion = MinionManager.getInstance().toIMinion(event.getRightClicked());
+        if (iMinion == null){
+            return;
+        }
+        event.setCancelled(true);
+        iMinion.setStatus(MinionStatus.IDLE);
+        iMinion.ambientAction();
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteract(EntityDamageEvent event) {
+        IMinion iMinion = MinionManager.getInstance().toIMinion(event.getEntity());
+        if (iMinion == null){
+            return;
+        }
+        event.setCancelled(true);
+        iMinion.setStatus(MinionStatus.IDLE);
+        iMinion.ambientAction();
     }
 
     private void notifyMinionsChangeTarget(Player player, Entity damager) {

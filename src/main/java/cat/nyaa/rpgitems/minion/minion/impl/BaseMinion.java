@@ -14,11 +14,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
+import think.rpgitems.power.Utils;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class BaseMinion implements IMinion {
@@ -143,6 +141,7 @@ public abstract class BaseMinion implements IMinion {
                 setStatus(MinionStatus.IDLE);
             }
         }
+        attackCooldown--;
     }
 
     @Override
@@ -185,6 +184,10 @@ public abstract class BaseMinion implements IMinion {
 
         if (nbt != null && !nbt.equals("")){
             NmsUtils.setEntityTag(trackedEntity, nbt);
+        }
+        Set<String> scoreboardTags = trackedEntity.getScoreboardTags();
+        if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
+            trackedEntity.addScoreboardTag(Utils.INVALID_TARGET);
         }
         trackedEntity.setInvulnerable(true);
         if (trackedEntity instanceof LivingEntity) {
