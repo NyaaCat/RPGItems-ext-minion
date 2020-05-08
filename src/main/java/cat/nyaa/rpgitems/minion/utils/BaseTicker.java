@@ -38,7 +38,7 @@ public abstract class BaseTicker<T> implements Runnable, Consumer<T> {
     @Override
     public void run() {
         int batchInterval = getBatchInterval();
-        if (batchInterval > 0 && c++ >= batchInterval){
+        if (batchInterval >= 0 && c++ >= batchInterval){
             fill();
             c = 0;
         }

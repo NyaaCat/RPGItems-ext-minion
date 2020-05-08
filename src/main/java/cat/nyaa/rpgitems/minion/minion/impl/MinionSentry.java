@@ -2,6 +2,8 @@ package cat.nyaa.rpgitems.minion.minion.impl;
 
 import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.minion.EntityInfo;
+import cat.nyaa.rpgitems.minion.minion.EntityRotater;
+import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.MinionStatus;
 import cat.nyaa.rpgitems.minion.power.impl.Sentry;
 import org.bukkit.Location;
@@ -10,7 +12,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import think.rpgitems.item.RPGItem;
 
 public class MinionSentry extends BaseMinion implements ISentry {
     private final Sentry power;
@@ -18,6 +19,23 @@ public class MinionSentry extends BaseMinion implements ISentry {
     public MinionSentry(Player player, Sentry power, ItemStack item){
         super(player, item);
         this.power = power;
+        initialize();
+    }
+
+    private void initialize() {
+        Sentry sentryPower = getSentryPower();
+        this.ttl = sentryPower.getTtl();
+        this.damage = sentryPower.getDamage();
+        this.attackInterval = sentryPower.getAttackInteval();
+        this.slotCost = sentryPower.getSlotCost();
+        this.targetingRange = sentryPower.getTargetRange();
+        this.autoAttack = sentryPower.isAutoAttackTarget();
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                MinionManager.getInstance().removeMinion(MinionSentry.this);
+            }
+        }.runTaskLater(MinionExtensionPlugin.plugin, ttl);
     }
 
     @Override
@@ -33,21 +51,67 @@ public class MinionSentry extends BaseMinion implements ISentry {
 
     @Override
     protected void onTargetChange(Entity target) {
-
+        if (target == null){
+            setStatus(MinionStatus.IDLE);
+            return;
+        }
+        if (isValidTarget(target)){
+            setStatus(MinionStatus.ATTACK);
+        }
     }
+
+    int currentTargetModified = 0;
 
     @Override
     protected void onTargetChange(Location targetLocation) {
+        if (targetLocation == null){
+            setStatus(MinionStatus.IDLE);
+            return;
+        }
+        int taskId = ++currentTargetModified;
+        setStatus(MinionStatus.ATTACK);
+        new BukkitRunnable(){
+            @Override
+            public void run() {
+                if (taskId == currentTargetModified) {
+                    setStatus(MinionStatus.IDLE);
+                }
+            }
+        }.runTaskLater(MinionExtensionPlugin.plugin, 200);
+    }
 
+    private boolean attacking = false;
+
+    @Override
+    public void tick(int minionTick) {
+        super.tick(minionTick);
+        attackCooldown--;
     }
 
     @Override
     public void attack(Location location) {
+        if (target != null){
+            if (target.isDead()){
+                setTarget(null);
+                setTargetLocation(null);
+            }
+        }
+        if (attackCooldown > 0 || attacking){
+            return;
+        }
         new AttackTask(location).runTaskTimer(MinionExtensionPlugin.plugin, 0, 1);
     }
 
     @Override
     public void attack(Entity entity) {
+        if (target != null){
+            if (target.isDead()){
+                setTarget(null);
+            }
+        }
+        if (attackCooldown > 0 || attacking){
+            return;
+        }
         new AttackTask(entity).runTaskTimer(MinionExtensionPlugin.plugin, 0, 1);
     }
 
@@ -75,41 +139,74 @@ public class MinionSentry extends BaseMinion implements ISentry {
             if (!initialized){
                 initialize();
             }
-            if (!checkRotation()){
-                return;
+            if (getStatus().equals(MinionStatus.ATTACK)){
+                this.cancel();
             }
             OfflinePlayer owner = getOwner();
-            if (owner.isOnline()) {
-                broadcastAttack(owner.getPlayer());
+            if (!owner.isOnline()) {
+                this.cancel();
+                return;
             }
+            if (!checkRotation()){
+                rotateToTarget();
+                return;
+            }
+            broadcastAttack(owner.getPlayer());
+            attackCooldown = attackInterval;
             this.cancel();
         }
 
-        MinionStatus prevStatus;
+        private void rotateToTarget() {
+            EntityRotater rotater = getRotater();
+            if (rotater.isRotating()){
+                return;
+            }
+            if (entity != null){
+                rotater.rotateTo(entity)
+                        .speed(180)
+                        .commitRotating();
+            }else {
+                rotater.rotateToLocation(location)
+                        .speed(180)
+                        .commitRotating();
+            }
+        }
 
         private void initialize() {
             initialized = true;
-            prevStatus = getStatus();
+            attacking = true;
             initializeRotateTask();
-            MinionSentry.this.status = MinionStatus.ATTACK;
         }
 
         private void initializeRotateTask() {
-            getRotater().setTarget(entity);
-
+            EntityRotater rotater = getRotater();
+            if (entity != null){
+                rotater.rotateTo(entity);
+            }else if (location != null){
+                rotater.rotateToLocation(location);
+            }
+            rotater.speed(180)
+                    .commitRotating();
         }
 
         @Override
         public synchronized void cancel() throws IllegalStateException {
             super.cancel();
-            status = prevStatus;
+            attacking = false;
         }
 
         private boolean checkRotation() {
-            return true;
+            Location target = targetLocation.clone();
+            if (entity != null){
+                target = getSelfLocation(entity);
+            }
+            Location selfLocation = getSelfLocation(trackedEntity);
+            double angle = Math.toDegrees(target.subtract(selfLocation).toVector().angle(selfLocation.getDirection()));
+            return !getRotater().isRotating() && angle < 5;
         }
 
     }
+
     enum AttackMode{
         LOCATION, ENTITY
     }

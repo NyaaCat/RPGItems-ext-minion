@@ -1,8 +1,6 @@
 package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.minion.*;
-import org.bukkit.Location;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import think.rpgitems.power.Property;
 
@@ -24,7 +22,7 @@ public abstract class BaseMinionPower extends BasePower {
     @Property
     double movementSpeed = 5d;
     @Property
-    double targetRange = 48d;
+    double targetRange = 24d;
     @Property
     int attackInteval = 20;
     @Property
@@ -32,7 +30,15 @@ public abstract class BaseMinionPower extends BasePower {
     @Property
     int slotCost = 1;
     @Property
+    double damage = 1;
+    @Property
     List<String> tags = new ArrayList<>();
+    @Property
+    boolean autoAttackTarget = true;
+
+    public boolean isAutoAttackTarget() {
+        return autoAttackTarget;
+    }
 
     {
         tags.add("rpgitems-minion");
@@ -64,6 +70,10 @@ public abstract class BaseMinionPower extends BasePower {
 
     public int getTtl() {
         return ttl;
+    }
+
+    public double getDamage() {
+        return damage;
     }
 
     public List<String> getTags() {

@@ -1,6 +1,7 @@
 package cat.nyaa.rpgitems.minion.minion.impl;
 
 import cat.nyaa.nyaacore.utils.NmsUtils;
+import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.events.MinionAttackEvent;
 import cat.nyaa.rpgitems.minion.events.MinionChangeTargetEvent;
 import cat.nyaa.rpgitems.minion.minion.*;
@@ -8,11 +9,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
 
@@ -20,19 +19,28 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class BaseMinion implements IMinion {
     private OfflinePlayer owner;
     private ItemStack fromItem;
+    private boolean removed = false;
     protected MinionStatus status = MinionStatus.IDLE;
     protected Entity trackedEntity;
     protected EntityRotater rotater = new EntityRotater();
     protected Location lastTrackedLocation;
     protected Entity target;
     protected Location targetLocation;
-    protected int nearbyRange = 24;
+    protected double targetingRange = 24;
+    protected boolean autoAttack = true;
+    protected int nearbyRange = 12;
     protected int slotCost = 1;
     protected TargetMode targetMode = TargetMode.MOBS;
+    protected int attackInterval = 20;
+    protected int ttl = 1;
+    protected double damage = 1;
+
+    protected int attackCooldown = 0;
 
     public BaseMinion(Player owner, ItemStack fromItem) {
         this.owner = owner;
@@ -51,22 +59,46 @@ public abstract class BaseMinion implements IMinion {
     public void ambientAction() {
         if (status.equals(MinionStatus.IDLE)){
             if (!rotater.isRotating()){
-                Optional<Player> nearestPlayer = getNearestPlayer(trackedEntity, nearbyRange);
-                nearestPlayer.ifPresent(this::lookAtPlayer);
+                if (autoAttack){
+                    Optional<Entity> nearestValidTarget = getNearestValidTarget(trackedEntity, targetingRange);
+                    if (nearestValidTarget.isPresent()) {
+                        setTarget(nearestValidTarget.get());
+                        return;
+                    }
+                }
+                if (ThreadLocalRandom.current().nextDouble(1) < 0.4){
+                    Optional<Player> nearestPlayer = getNearestPlayer(trackedEntity, nearbyRange);
+                    nearestPlayer.ifPresent(this::lookAtPlayer);
+                }else if (ThreadLocalRandom.current().nextDouble(1) < 0.4){
+                    lookAround();
+                }
             }
         }
     }
 
-    private void lookAtPlayer(Player nearestPlayer) {
-        rotater.rotateTo(nearestPlayer);
+    private void lookAround() {
+        //todo
     }
 
-    private Location getSelfLocation() {
+    private Optional<Entity> getNearestValidTarget(Entity trackedEntity, double range) {
+        Location location = trackedEntity.getLocation();
+        return trackedEntity.getNearbyEntities(range, range, range).stream()
+                .filter(this::isValidTarget)
+                .min(Comparator.comparingDouble(player -> getSelfLocation(player).distance(location)));
+    }
+
+    private void lookAtPlayer(Player nearestPlayer) {
+        rotater.rotateTo(nearestPlayer)
+                .speed(50)
+                .commitRotating();
+    }
+
+    public static Location getSelfLocation(Entity entity) {
         Location selfLocation;
-        if (trackedEntity instanceof LivingEntity){
-            selfLocation = ((LivingEntity) trackedEntity).getEyeLocation();
+        if (entity instanceof LivingEntity){
+            selfLocation = ((LivingEntity) entity).getEyeLocation();
         }else {
-            selfLocation = trackedEntity.getLocation();
+            selfLocation = entity.getLocation();
         }
         return selfLocation.clone();
     }
@@ -93,8 +125,35 @@ public abstract class BaseMinion implements IMinion {
         if (minionTick % 40 == 0 && getStatus().equals(MinionStatus.IDLE)){
             this.ambientAction();
         }
-        //todo
         lastTrackedLocation = trackedEntity.getLocation();
+        if (target != null){
+            if(!target.isDead()){
+                setStatus(MinionStatus.ATTACK);
+            }else {
+                setStatus(MinionStatus.IDLE);
+            }
+        }
+
+        if (getStatus().equals(MinionStatus.ATTACK)){
+            if (target != null){
+                attack(target);
+            }else if (targetLocation !=null){
+                attack(targetLocation);
+            }else {
+                setStatus(MinionStatus.IDLE);
+            }
+        }
+    }
+
+    @Override
+    public void remove() {
+        removed = true;
+        despawn();
+    }
+
+    @Override
+    public boolean isRemoved() {
+        return removed;
     }
 
     @Override
@@ -128,6 +187,9 @@ public abstract class BaseMinion implements IMinion {
             NmsUtils.setEntityTag(trackedEntity, nbt);
         }
         trackedEntity.setInvulnerable(true);
+        if (trackedEntity instanceof LivingEntity) {
+            ((LivingEntity) trackedEntity).setAI(false);
+        }
         if (!tags.isEmpty()){
             tags.forEach(s -> trackedEntity.addScoreboardTag(s));
         }
@@ -154,10 +216,17 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void setTarget(Entity target) {
+        if (target == trackedEntity){
+            target = null;
+        }
         MinionChangeTargetEvent minionChangeTargetEvent = new MinionChangeTargetEvent(this, trackedEntity, target);
         Bukkit.getPluginManager().callEvent(minionChangeTargetEvent);
         this.target = target;
-        targetLocation = target.getLocation();
+        if (target == null){
+            targetLocation = null;
+        }else {
+            targetLocation = getSelfLocation(target);
+        }
         onTargetChange(target);
     }
 
@@ -175,11 +244,36 @@ public abstract class BaseMinion implements IMinion {
         onTargetChange(location);
     }
 
+    @Override
+    public void setStatus(MinionStatus status) {
+        this.status = status;
+    }
+
+    @Override
+    public boolean isValidTarget(Entity target){
+        IMinion iMinion = MinionManager.getInstance().toIMinion(target);
+        if (iMinion != null){
+            return false;
+        }
+        switch (getTargetMode()){
+            case ALL:
+                return true;
+            case MOBS:
+                return target instanceof Mob;
+            case PLAYERS:
+                return target instanceof Player;
+            case PASSIVE:
+                return target instanceof Animals;
+            default:
+                return true;
+        }
+    }
+
     protected abstract void onTargetChange(Entity target);
     protected abstract void onTargetChange(Location targetLocation);
 
     protected void broadcastAttack(Player commander){
-        Location selfLocation = getSelfLocation();
+        Location selfLocation = getSelfLocation(trackedEntity);
         MinionAttackEvent minionAttackEvent = new MinionAttackEvent(this, commander, trackedEntity, selfLocation, selfLocation.getDirection());
         Bukkit.getPluginManager().callEvent(minionAttackEvent);
     }

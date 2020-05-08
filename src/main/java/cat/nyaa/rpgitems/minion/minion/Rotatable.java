@@ -1,7 +1,7 @@
 package cat.nyaa.rpgitems.minion.minion;
 
 public interface Rotatable {
-    void speed(double speed);
+    void setSpeed(double speed);
     double getSpeed();
 
     void reset();

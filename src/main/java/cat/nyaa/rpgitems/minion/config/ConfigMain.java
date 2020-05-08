@@ -6,6 +6,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class ConfigMain extends PluginConfigure {
 
+    @Serializable
+    public String language = "en_US";
     @Serializable(name = "slot.max.default")
     public int defaultSlotMax = 1;
     @Serializable(name = "interval.tick.minion")

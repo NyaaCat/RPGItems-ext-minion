@@ -1,11 +1,15 @@
 package cat.nyaa.rpgitems.minion.minion;
 
+import cat.nyaa.rpgitems.minion.database.Database;
+import cat.nyaa.rpgitems.minion.database.PlayerData;
+import cat.nyaa.rpgitems.minion.events.MinionMaxEvent;
 import cat.nyaa.rpgitems.minion.utils.BaseTicker;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
+import javax.xml.crypto.Data;
 import java.util.*;
 
 public class MinionManager {
@@ -27,6 +31,9 @@ public class MinionManager {
     public MinionManager() {
         minionTicker = new MinionTicker();
         playerTicker = new PlayerTicker();
+    }
+
+    public void init(){
         minionTicker.start();
         playerTicker.start();
     }
@@ -83,12 +90,14 @@ public class MinionManager {
     }
 
     private void doMinionTick(IMinion iMinion, int minionTick) {
+        if (iMinion.isRemoved()){
+            return;
+        }
         OfflinePlayer oPlayer = iMinion.getOwner();
         if (oPlayer == null || !oPlayer.isOnline()) {
             removeMinion(iMinion);
             return;
         }
-        Player player = oPlayer.getPlayer();
         //todo
         iMinion.tick(minionTick);
     }
@@ -106,10 +115,10 @@ public class MinionManager {
         toRemove.forEach(this::removeMinion);
     }
 
-    private void removeMinion(UUID uuid) {
+    public void removeMinion(UUID uuid) {
         IMinion iMinion = entityMinionMap.remove(uuid);
         if (iMinion!=null){
-            iMinion.despawn();
+            iMinion.remove();
             OfflinePlayer opt = iMinion.getOwner();
             Player player;
             if (opt != null && (player = opt.getPlayer()) != null){
@@ -118,8 +127,8 @@ public class MinionManager {
         }
     }
 
-    private void removeMinion(IMinion iMinion) {
-        removeMinion(iMinion.getEntity().getUniqueId());
+    public void removeMinion(IMinion iMinion) {
+         removeMinion(iMinion.getEntity().getUniqueId());
     }
 
     public void clear(){
@@ -138,12 +147,12 @@ public class MinionManager {
         int minionTick = 0;
 
         public MinionTicker(){
-            setBatchInterval(1);
+            setBatchInterval(0);
         }
 
         @Override
         public void accept(IMinion iMinion) {
-            doMinionTick(iMinion, minionTick);
+            doMinionTick(iMinion, minionTick++);
         }
 
         @Override
@@ -156,10 +165,30 @@ public class MinionManager {
         @Override
         public void accept(Player player) {
             doSanityCheck(player);
+            doMaxCheck(player);
         }
+
+        private void doMaxCheck(Player player) {
+            PlayerData playerData = Database.getInstance().getPlayerData(player.getUniqueId());
+            int baseMax = playerData.slotMax;
+            MinionMaxEvent event = new MinionMaxEvent(player, baseMax);
+            Bukkit.getPluginManager().callEvent(event);
+            int max = event.getMax();
+            MinionManager.getInstance().setMinionMax(player, max);
+            checkMax(player);
+        }
+
         @Override
         protected Collection<? extends Player> getNextBatch() {
             return Bukkit.getOnlinePlayers();
         }
+    }
+
+    public void setMinionMax(Player player, int max) {
+        minionMaxMap.put(player.getUniqueId(), max);
+    }
+
+    public int getMinionMax(Player player){
+        return minionMaxMap.get(player.getUniqueId());
     }
 }

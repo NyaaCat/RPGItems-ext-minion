@@ -1,6 +1,7 @@
 package cat.nyaa.rpgitems.minion.minion;
 
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
 import think.rpgitems.item.RPGItem;
 
@@ -15,7 +16,10 @@ public interface IMinion extends Targetable, EntityHolderNonpersistent {
 
     void ambientAction();
     MinionStatus getStatus();
+    void setStatus(MinionStatus status);
 
+    boolean isValidTarget(Entity target);
     void tick(int minionTick);
-
+    void remove();
+    boolean isRemoved();
 }
