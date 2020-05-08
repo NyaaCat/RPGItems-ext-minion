@@ -35,13 +35,15 @@ public abstract class BaseMinionPower extends BasePower {
     List<String> tags = new ArrayList<>();
     @Property
     boolean autoAttackTarget = true;
+    @Property
+    double spawnRange = 64;
+
+    public double getSpawnRange() {
+        return spawnRange;
+    }
 
     public boolean isAutoAttackTarget() {
         return autoAttackTarget;
-    }
-
-    {
-        tags.add("rpgitems-minion");
     }
 
     public EntityType getEntityType() {

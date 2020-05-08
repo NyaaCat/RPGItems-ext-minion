@@ -30,6 +30,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
         this.slotCost = sentryPower.getSlotCost();
         this.targetingRange = sentryPower.getTargetRange();
         this.autoAttack = sentryPower.isAutoAttackTarget();
+        this.display = sentryPower.getDisplay();
         new BukkitRunnable() {
             @Override
             public void run() {

@@ -26,16 +26,10 @@ import static think.rpgitems.power.Utils.checkCooldown;
 @Meta(defaultTrigger = "RIGHT_CLICK", implClass = Sentry.Impl.class)
 public class Sentry extends BaseMinionPower {
     @Property
-    SentryTypes type = SentryTypes.REGULAR;
-    @Property
-    double spawnRange = 64;
+    SentryTypes sentryType = SentryTypes.REGULAR;
 
-    public double getSpawnRange() {
-        return spawnRange;
-    }
-
-    public SentryTypes getType() {
-        return type;
+    public SentryTypes getSentryType() {
+        return sentryType;
     }
 
     @Override

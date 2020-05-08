@@ -21,12 +21,16 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.spigotmc.event.entity.EntityMountEvent;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
 import think.rpgitems.utils.LightContext;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -57,6 +61,7 @@ public class MainEvents implements Listener {
             if (owner.isOnline()) {
                 double damage = evt.getDamage();
                 Player player = owner.getPlayer();
+                evt.setCancelled(true);
                 Optional<Object> source = LightContext.getTemp(iMinion.getEntity().getUniqueId(), DAMAGE_SOURCE);
                 Optional<Object> overridingDamage = LightContext.getTemp(iMinion.getEntity().getUniqueId(), OVERRIDING_DAMAGE);
                 Optional<Object> supressMelee = LightContext.getTemp(iMinion.getEntity().getUniqueId(), SUPPRESS_MELEE);
@@ -127,17 +132,35 @@ public class MainEvents implements Listener {
         event.setCancelled(true);
         iMinion.setStatus(MinionStatus.IDLE);
         iMinion.ambientAction();
+        OfflinePlayer owner = iMinion.getOwner();
+        if (owner.isOnline() && owner.getUniqueId().equals(event.getPlayer().getUniqueId())){
+            final UUID uniqueId = iMinion.getEntity().getUniqueId();
+            if (toRemove.contains(uniqueId)){
+                MinionManager.getInstance().removeMinion(iMinion);
+                return;
+            }
+            toRemove.add(uniqueId);
+            new BukkitRunnable(){
+                @Override
+                public void run() {
+                    toRemove.remove(uniqueId);
+                }
+            }.runTaskLater(MinionExtensionPlugin.plugin, 10);
+        }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onPlayerInteract(EntityDamageEvent event) {
-        IMinion iMinion = MinionManager.getInstance().toIMinion(event.getEntity());
-        if (iMinion == null){
-            return;
+    static List<UUID> toRemove = new ArrayList<>();
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMount(EntityMountEvent event){
+        MinionManager instance = MinionManager.getInstance();
+        Entity entity = event.getEntity();
+        Entity mount = event.getMount();
+        IMinion entityMinion = instance.toIMinion(entity);
+        IMinion mountMinion = instance.toIMinion(mount);
+        if (entityMinion != null || mountMinion != null){
+            event.setCancelled(true);
         }
-        event.setCancelled(true);
-        iMinion.setStatus(MinionStatus.IDLE);
-        iMinion.ambientAction();
     }
 
     private void notifyMinionsChangeTarget(Player player, Entity damager) {

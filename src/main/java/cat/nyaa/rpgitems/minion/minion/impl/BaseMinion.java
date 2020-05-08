@@ -5,11 +5,11 @@ import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.events.MinionAttackEvent;
 import cat.nyaa.rpgitems.minion.events.MinionChangeTargetEvent;
 import cat.nyaa.rpgitems.minion.minion.*;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.World;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.*;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import think.rpgitems.item.ItemManager;
@@ -37,6 +37,7 @@ public abstract class BaseMinion implements IMinion {
     protected int attackInterval = 20;
     protected int ttl = 1;
     protected double damage = 1;
+    protected String display = "";
 
     protected int attackCooldown = 0;
 
@@ -64,10 +65,10 @@ public abstract class BaseMinion implements IMinion {
                         return;
                     }
                 }
-                if (ThreadLocalRandom.current().nextDouble(1) < 0.4){
+                if (ThreadLocalRandom.current().nextDouble(1) < 0.5){
                     Optional<Player> nearestPlayer = getNearestPlayer(trackedEntity, nearbyRange);
                     nearestPlayer.ifPresent(this::lookAtPlayer);
-                }else if (ThreadLocalRandom.current().nextDouble(1) < 0.4){
+                }else if (ThreadLocalRandom.current().nextDouble(1) < 0.5){
                     lookAround();
                 }
             }
@@ -75,7 +76,14 @@ public abstract class BaseMinion implements IMinion {
     }
 
     private void lookAround() {
-        //todo
+        Location selfLocation = getSelfLocation(trackedEntity);
+        double x = ThreadLocalRandom.current().nextDouble(1);
+        double y = ThreadLocalRandom.current().nextDouble(1);
+        double z = ThreadLocalRandom.current().nextDouble(1);
+        getRotater()
+                .rotateToLocation(selfLocation.add(x,y,z))
+                .speed(50)
+                .commitRotating();
     }
 
     private Optional<Entity> getNearestValidTarget(Entity trackedEntity, double range) {
@@ -188,13 +196,42 @@ public abstract class BaseMinion implements IMinion {
         Set<String> scoreboardTags = trackedEntity.getScoreboardTags();
         if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
             trackedEntity.addScoreboardTag(Utils.INVALID_TARGET);
+            trackedEntity.addScoreboardTag("rpgitems-minion");
         }
-        trackedEntity.setInvulnerable(true);
         if (trackedEntity instanceof LivingEntity) {
-            ((LivingEntity) trackedEntity).setAI(false);
+            LivingEntity livingEntity = (LivingEntity) this.trackedEntity;
+            livingEntity.setAI(false);
+            if (livingEntity instanceof ArmorStand) {
+                if (((ArmorStand) livingEntity).isMarker()){
+                    Location clone = location.clone();
+                    Block relative = location.getBlock().getRelative(BlockFace.DOWN);
+                    double dx = clone.getX() - clone.getBlockX();
+                    double dy = clone.getY() - clone.getBlockY();
+                    double dz = clone.getZ() - clone.getBlockZ();
+                    int xSign = dx < 0 ? -1: 1;
+                    int ySign = dy < 0 ? -1: 1;
+                    int zSign = dz < 0 ? -1: 1;
+
+                    clone.setX(clone.getBlockX() + (xSign * Math.max(0.5, Math.min(Math.abs(dx), 0.7))));
+                    clone.setZ(clone.getBlockZ() + (zSign * Math.max(0.5, Math.min(Math.abs(dz), 0.7))));
+
+                    double dy1 = ySign * Math.max(0.5, Math.min(Math.abs(dy), 0.7));
+                    if (relative.getType().isAir()) {
+                        clone.setY(clone.getBlockY() + dy1);
+                    }else {
+                        clone.setY(clone.getBlockY() + dy1 + 1);
+                    }
+
+                    livingEntity.teleport(clone, PlayerTeleportEvent.TeleportCause.PLUGIN);
+                }
+            }
         }
         if (!tags.isEmpty()){
             tags.forEach(s -> trackedEntity.addScoreboardTag(s));
+        }
+        if (!display.equals("")){
+            trackedEntity.setCustomName(ChatColor.translateAlternateColorCodes('&', display));
+            trackedEntity.setCustomNameVisible(true);
         }
         rotater.setTrackedEntity(trackedEntity);
         if (lastTrackedLocation != null){
