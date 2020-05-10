@@ -18,6 +18,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -49,7 +50,26 @@ public class MainEvents implements Listener {
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
-    public void onMinionHit(EntityDamageByEntityEvent evt){
+    public void onMinionHurt(EntityDamageEvent evt){
+        IMinion iMinion = MinionManager.getInstance().toIMinion(evt.getEntity());
+        //adapt /minecraft:kill
+        if (iMinion != null && !evt.getCause().equals(EntityDamageEvent.DamageCause.VOID)){
+            evt.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onMinionDeath(EntityDeathEvent evt){
+        IMinion iMinion = MinionManager.getInstance().toIMinion(evt.getEntity());
+        if (iMinion != null){
+            evt.setDroppedExp(0);
+            evt.getDrops().clear();
+        }
+    }
+
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onMinionHurt(EntityDamageByEntityEvent evt){
         IMinion iMinion = MinionManager.getInstance().toIMinion(evt.getDamager());
         if (iMinion!=null){
             OfflinePlayer owner = iMinion.getOwner();
