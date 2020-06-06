@@ -2,13 +2,14 @@ package cat.nyaa.rpgitems.minion;
 
 import cat.nyaa.rpgitems.minion.database.Database;
 import cat.nyaa.rpgitems.minion.database.PlayerData;
-import cat.nyaa.rpgitems.minion.events.MinionAttackEvent;
-import cat.nyaa.rpgitems.minion.events.MinionMaxEvent;
+import cat.nyaa.rpgitems.minion.events.*;
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.MinionStatus;
+import cat.nyaa.rpgitems.minion.power.marker.ConditionedMarker;
 import cat.nyaa.rpgitems.minion.power.marker.MinionMax;
 import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
+import cat.nyaa.rpgitems.minion.utils.ConditionChecker;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -26,17 +27,16 @@ import org.bukkit.scheduler.BukkitRunnable;
 import org.spigotmc.event.entity.EntityMountEvent;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
+import think.rpgitems.power.Condition;
+import think.rpgitems.power.PowerResult;
+import think.rpgitems.power.PropertyHolder;
 import think.rpgitems.utils.LightContext;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static think.rpgitems.Events.*;
-import static think.rpgitems.Events.DAMAGE_SOURCE_ITEM;
 
 public class MainEvents implements Listener {
 
@@ -46,6 +46,42 @@ public class MainEvents implements Listener {
         if (!player.isOnline()) return;
         event.getRPGItem().ifPresent(rpgitem -> {
             rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_ATTACK);
+        });
+    }
+
+    @EventHandler
+    public void onMinionSpawn(MinionSpawnEvent event){
+        OfflinePlayer player = event.getPlayer();
+        if (!player.isOnline()) return;
+        event.getRPGItem().ifPresent(rpgitem ->{
+            rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_SPAWN);
+        });
+    }
+
+    @EventHandler
+    public void onMinionMove(MinionMoveEvent event){
+        OfflinePlayer player = event.getPlayer();
+        if (!player.isOnline()) return;
+        event.getRPGItem().ifPresent(rpgitem ->{
+            rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_MOVE);
+        });
+    }
+
+    @EventHandler
+    public void onTargetChange(MinionChangeTargetEvent event){
+        OfflinePlayer player = event.getPlayer();
+        if (!player.isOnline()) return;
+        event.getRPGItem().ifPresent(rpgitem ->{
+            rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_CHANGE_TARGET);
+        });
+    }
+
+    @EventHandler
+    public void onAmbient(MinionAmbientEvent event){
+        OfflinePlayer player = event.getPlayer();
+        if (!player.isOnline()) return;
+        event.getRPGItem().ifPresent(rpgitem ->{
+            rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_AMBIENT);
         });
     }
 
@@ -134,8 +170,14 @@ public class MainEvents implements Listener {
                     if (!opt.isPresent()) {
                         return;
                     }
+
                     RPGItem rgi = opt.get();
+                    List<? extends ConditionedMarker<Integer>> markers = rgi.getMarker(MinionMax.class);
+                    List<Condition<?>> conditions = rgi.getConditions();
+                    Map<Condition<?>, PowerResult<?>> staticCondition = ConditionChecker.checkStaticCondition(player, itemStack, conditions, markers);
+                    Map<PropertyHolder, PowerResult<?>> resultMap = new LinkedHashMap<>(staticCondition);
                     int sum = rgi.getMarker(MinionMax.class).stream()
+                            .filter(marker -> ConditionChecker.checkConditions(player, itemStack, marker, conditions, resultMap) == null)
                             .mapToInt(MinionMax::getMax)
                             .sum();
                     extraSlots.addAndGet(sum);

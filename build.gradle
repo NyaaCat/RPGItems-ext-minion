@@ -31,7 +31,7 @@ String buildNumber = System.getenv("BUILD_NUMBER") == null ? "686936"           
 version = "$majorVersion.$minorVersion-$buildNumber"
 
 dependencies {
-    compileOnly('cat.nyaa:nyaacore:7.1-SNAPSHOT')
+    compileOnly('cat.nyaa:nyaacore:7.2-SNAPSHOT')
     compileOnly('cat.nyaa:rpgitems:3.8-SNAPSHOT')
     compileOnly("org.spigotmc:spigot-api:$minecraftVersion-R0.1-SNAPSHOT")
     compileOnly group: "com.comphenix.protocol", name: "ProtocolLib", version: "4.5.0";

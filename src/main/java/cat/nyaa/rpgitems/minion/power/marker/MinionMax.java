@@ -21,4 +21,9 @@ public class MinionMax extends ExtBaseMarker {
     public String getName() {
         return "minionmax";
     }
+
+    @Override
+    public Integer getValue() {
+        return max;
+    }
 }

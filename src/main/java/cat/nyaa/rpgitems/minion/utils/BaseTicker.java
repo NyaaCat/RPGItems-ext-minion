@@ -42,7 +42,7 @@ public abstract class BaseTicker<T> implements Runnable, Consumer<T> {
             fill();
             c = 0;
         }
-        int tasksInThisTick = (int) (Math.ceil((double) size / (double) tickSpeed) + 1);
+        int tasksInThisTick = (int) (Math.ceil((double) size / (double) batchInterval) + 1);
         while (!queue.isEmpty() && tasksInThisTick-- > 0){
             T poll = queue.poll();
             this.accept(poll);

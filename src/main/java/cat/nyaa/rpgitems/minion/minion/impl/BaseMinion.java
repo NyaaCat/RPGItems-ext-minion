@@ -2,6 +2,7 @@ package cat.nyaa.rpgitems.minion.minion.impl;
 
 import cat.nyaa.nyaacore.utils.NmsUtils;
 import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
+import cat.nyaa.rpgitems.minion.events.MinionAmbientEvent;
 import cat.nyaa.rpgitems.minion.events.MinionAttackEvent;
 import cat.nyaa.rpgitems.minion.events.MinionChangeTargetEvent;
 import cat.nyaa.rpgitems.minion.minion.*;
@@ -66,9 +67,19 @@ public abstract class BaseMinion implements IMinion {
                     }
                 }
                 if (ThreadLocalRandom.current().nextDouble(1) < 0.5){
+                    MinionAmbientEvent minionAmbientEvent = new MinionAmbientEvent(this, getEntity());
+                    Bukkit.getPluginManager().callEvent(minionAmbientEvent);
+                    if (minionAmbientEvent.isCanceled()){
+                        return;
+                    }
                     Optional<Player> nearestPlayer = getNearestPlayer(trackedEntity, nearbyRange);
                     nearestPlayer.ifPresent(this::lookAtPlayer);
                 }else if (ThreadLocalRandom.current().nextDouble(1) < 0.5){
+                    MinionAmbientEvent minionAmbientEvent = new MinionAmbientEvent(this, getEntity());
+                    Bukkit.getPluginManager().callEvent(minionAmbientEvent);
+                    if (minionAmbientEvent.isCanceled()){
+                        return;
+                    }
                     lookAround();
                 }
             }
