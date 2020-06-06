@@ -39,6 +39,8 @@ public abstract class BaseMinion implements IMinion {
     protected int ttl = 1;
     protected double damage = 1;
     protected String display = "";
+    protected boolean isTargetAutoLocked = false;
+    protected double ranAtkIntFac = 0.1;
 
     protected int attackCooldown = 0;
 
@@ -62,7 +64,7 @@ public abstract class BaseMinion implements IMinion {
                 if (autoAttack){
                     Optional<Entity> nearestValidTarget = getNearestValidTarget(trackedEntity, targetingRange);
                     if (nearestValidTarget.isPresent()) {
-                        setTarget(nearestValidTarget.get());
+                        autoLockTarget(nearestValidTarget.get());
                         return;
                     }
                 }
@@ -84,6 +86,11 @@ public abstract class BaseMinion implements IMinion {
                 }
             }
         }
+    }
+
+    private void autoLockTarget(Entity target) {
+        setTarget(target);
+        this.isTargetAutoLocked = true;
     }
 
     private void lookAround() {
@@ -278,6 +285,7 @@ public abstract class BaseMinion implements IMinion {
         }else {
             targetLocation = getSelfLocation(target);
         }
+        isTargetAutoLocked = false;
         onTargetChange(target);
     }
 
@@ -336,6 +344,11 @@ public abstract class BaseMinion implements IMinion {
     @Override
     public TargetMode getTargetMode() {
         return targetMode;
+    }
+
+    @Override
+    public boolean isTargetAutoLocked() {
+        return isTargetAutoLocked;
     }
 
     @Override

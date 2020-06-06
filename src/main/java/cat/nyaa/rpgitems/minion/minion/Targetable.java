@@ -9,6 +9,7 @@ public interface Targetable {
     Location getTargetLocation();
     void setTargetLocation(Location location);
     TargetMode getTargetMode();
+    boolean isTargetAutoLocked();
 
     void attack(Location location);
     void attack(Entity entity);

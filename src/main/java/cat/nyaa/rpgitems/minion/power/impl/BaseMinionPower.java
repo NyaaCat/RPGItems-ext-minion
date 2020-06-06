@@ -26,6 +26,8 @@ public abstract class BaseMinionPower extends BasePower {
     @Property
     int attackInteval = 20;
     @Property
+    double ranAtkIntFac = 0.1;
+    @Property
     int ttl = 2400;
     @Property
     int slotCost = 1;
@@ -37,7 +39,6 @@ public abstract class BaseMinionPower extends BasePower {
     boolean autoAttackTarget = true;
     @Property
     double spawnRange = 64;
-
     public double getSpawnRange() {
         return spawnRange;
     }
@@ -76,6 +77,10 @@ public abstract class BaseMinionPower extends BasePower {
 
     public double getDamage() {
         return damage;
+    }
+
+    public double getRanAtkIntFac() {
+        return ranAtkIntFac;
     }
 
     public List<String> getTags() {

@@ -13,6 +13,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 public class MinionSentry extends BaseMinion implements ISentry {
     private final Sentry power;
 
@@ -31,6 +33,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
         this.targetingRange = sentryPower.getTargetRange();
         this.autoAttack = sentryPower.isAutoAttackTarget();
         this.display = sentryPower.getDisplay();
+        this.ranAtkIntFac = sentryPower.getRanAtkIntFac();
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -151,8 +154,14 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 rotateToTarget();
                 return;
             }
+            if (isTargetAutoLocked()){
+                if (entity!=null && entity.getLocation().distance(getEntity().getLocation()) > targetingRange){
+                    this.cancel();
+                    return;
+                }
+            }
             broadcastAttack(owner.getPlayer());
-            attackCooldown = attackInterval;
+            attackCooldown = attackInterval + randomInteval(ranAtkIntFac);
             this.cancel();
         }
 
@@ -170,6 +179,10 @@ public class MinionSentry extends BaseMinion implements ISentry {
                         .speed(180)
                         .commitRotating();
             }
+        }
+
+        private int randomInteval(double factor){
+            return (int) Math.round(ThreadLocalRandom.current().nextDouble(-factor, factor) * attackInterval);
         }
 
         private void initialize() {
