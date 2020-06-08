@@ -46,7 +46,7 @@ public abstract class BaseMinion implements IMinion {
 
     public BaseMinion(Player owner, ItemStack fromItem) {
         this.owner = owner;
-        this.fromItem = fromItem;
+        this.fromItem = fromItem.clone();
     }
 
     public OfflinePlayer getOwner() {
