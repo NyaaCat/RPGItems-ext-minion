@@ -16,6 +16,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
 import think.rpgitems.power.Utils;
+import think.rpgitems.utils.cast.RangedDoubleValue;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -27,6 +28,7 @@ public abstract class BaseMinion implements IMinion {
     protected MinionStatus status = MinionStatus.IDLE;
     protected Entity trackedEntity;
     protected EntityRotater rotater = new EntityRotater();
+    protected EntitySpinner spinner = new EntitySpinner();
     protected Location lastTrackedLocation;
     protected Entity target;
     protected Location targetLocation;
@@ -41,6 +43,10 @@ public abstract class BaseMinion implements IMinion {
     protected String display = "";
     protected boolean isTargetAutoLocked = false;
     protected double ranAtkIntFac = 0.1;
+    protected SpinMode spinMode = SpinMode.OFF;
+    protected double spinSpeed = 0;
+    protected double spinSpeedMax = 0;
+
 
     protected int attackCooldown = 0;
 
@@ -59,6 +65,9 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void ambientAction() {
+        if (spinMode.equals(SpinMode.AMBIENT)){
+            selfSpin();
+        }
         if (status.equals(MinionStatus.IDLE)){
             if (!rotater.isRotating()){
                 if (autoAttack){
@@ -86,6 +95,10 @@ public abstract class BaseMinion implements IMinion {
                 }
             }
         }
+    }
+
+    private void selfSpin() {
+        spinner.spin();
     }
 
     private void autoLockTarget(Entity target) {
@@ -166,6 +179,12 @@ public abstract class BaseMinion implements IMinion {
             }else {
                 setStatus(MinionStatus.IDLE);
             }
+        }
+        if (this.spinMode.equals(SpinMode.ALWAYS)){
+            rotater.setPitchOnly(true);
+            selfSpin();
+        }else {
+            rotater.setPitchOnly(false);
         }
         attackCooldown--;
     }
@@ -252,6 +271,8 @@ public abstract class BaseMinion implements IMinion {
             trackedEntity.setCustomNameVisible(true);
         }
         rotater.setTrackedEntity(trackedEntity);
+        spinner.setEntity(trackedEntity);
+        spinner.setSpinSpeed(spinSpeed);
         if (lastTrackedLocation != null){
             trackedEntity.setRotation(lastTrackedLocation.getYaw(), lastTrackedLocation.getPitch());
         }
@@ -265,6 +286,8 @@ public abstract class BaseMinion implements IMinion {
         }
         trackedEntity.remove();
         rotater.setTrackedEntity(null);
+        spinner.setEntity(null);
+        spinner.setSpinSpeed(spinSpeed);
     }
 
     @Override

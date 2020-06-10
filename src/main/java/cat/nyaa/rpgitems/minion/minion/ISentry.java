@@ -1,4 +1,4 @@
-package cat.nyaa.rpgitems.minion.minion.impl;
+package cat.nyaa.rpgitems.minion.minion;
 
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.power.impl.Sentry;

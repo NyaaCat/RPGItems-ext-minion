@@ -13,6 +13,15 @@ public class EntityRotater implements Rotatable {
     Entity target;
     Location location;
     private double speed;
+    private boolean pitchOnly = false;
+
+    public boolean isPitchOnly() {
+        return pitchOnly;
+    }
+
+    public void setPitchOnly(boolean pitchOnly) {
+        this.pitchOnly = pitchOnly;
+    }
 
     public Entity getTrackedEntity() {
         return trackedEntity;
@@ -147,6 +156,10 @@ public class EntityRotater implements Rotatable {
 
                 double dRotate = rSign * Math.min(Math.abs(maxTickRotation), Math.abs(toRotate));
                 double dPitch = pSign * Math.min(Math.abs(maxTickPitch), Math.abs(toPitch));
+
+                if (isPitchOnly()){
+                    dRotate = 0;
+                }
 
                 trackedEntity.setRotation((float) (selfLocation.getYaw() + dRotate), ((float) (selfLocation.getPitch() + dPitch)));
 

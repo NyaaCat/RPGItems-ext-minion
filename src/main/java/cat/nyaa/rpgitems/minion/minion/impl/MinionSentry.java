@@ -1,17 +1,17 @@
 package cat.nyaa.rpgitems.minion.minion.impl;
 
 import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
-import cat.nyaa.rpgitems.minion.minion.EntityInfo;
-import cat.nyaa.rpgitems.minion.minion.EntityRotater;
-import cat.nyaa.rpgitems.minion.minion.MinionManager;
-import cat.nyaa.rpgitems.minion.minion.MinionStatus;
+import cat.nyaa.rpgitems.minion.minion.*;
 import cat.nyaa.rpgitems.minion.power.impl.Sentry;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Particle;
+import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -34,6 +34,9 @@ public class MinionSentry extends BaseMinion implements ISentry {
         this.autoAttack = sentryPower.isAutoAttackTarget();
         this.display = sentryPower.getDisplay();
         this.ranAtkIntFac = sentryPower.getRanAtkIntFac();
+        this.spinMode = sentryPower.getSpinMode();
+        this.spinSpeed = sentryPower.getSpinSpeed().random();
+        this.spinSpeedMax = sentryPower.getSpinSpeed().uniformed(1,1);
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -150,7 +153,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 this.cancel();
                 return;
             }
-            if (!checkRotation()){
+            if (!MinionSentry.this.spinMode.equals(SpinMode.ALWAYS) && !checkRotation()){
                 rotateToTarget();
                 return;
             }
@@ -160,7 +163,26 @@ public class MinionSentry extends BaseMinion implements ISentry {
                     return;
                 }
             }
+            Location selfLocation = getSelfLocation(trackedEntity);
+            Location target = targetLocation.clone();
+            if (entity != null){
+                target = getSelfLocation(entity);
+            }
+            Location subtract = target.subtract(selfLocation);
+            subtract.setDirection(subtract.toVector());
+            if (MinionSentry.this.spinMode.equals(SpinMode.ALWAYS)){
+                trackedEntity.setRotation(subtract.getYaw(), subtract.getPitch());
+            }
             broadcastAttack(owner.getPlayer());
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (MinionSentry.this.spinMode.equals(SpinMode.ALWAYS)){
+                        trackedEntity.setRotation(selfLocation.getYaw(), selfLocation.getPitch());
+                    }
+                }
+            }.runTaskLater(MinionExtensionPlugin.plugin, 0);
+
             attackCooldown = attackInterval + randomInteval(ranAtkIntFac);
             this.cancel();
         }
@@ -214,7 +236,9 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 target = getSelfLocation(entity);
             }
             Location selfLocation = getSelfLocation(trackedEntity);
-            double angle = Math.toDegrees(target.subtract(selfLocation).toVector().angle(selfLocation.getDirection()));
+            Location subtract = target.subtract(selfLocation);
+
+            double angle = Math.toDegrees(subtract.toVector().angle(selfLocation.getDirection()));
             return !getRotater().isRotating() && angle < 5;
         }
 

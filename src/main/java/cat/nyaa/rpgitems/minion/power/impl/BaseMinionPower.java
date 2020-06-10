@@ -2,7 +2,11 @@ package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.minion.*;
 import org.bukkit.entity.EntityType;
+import think.rpgitems.power.Deserializer;
 import think.rpgitems.power.Property;
+import think.rpgitems.power.Serializer;
+import think.rpgitems.utils.cast.RangedDoubleValue;
+import think.rpgitems.utils.cast.RangedValueSerializer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +43,23 @@ public abstract class BaseMinionPower extends BasePower {
     boolean autoAttackTarget = true;
     @Property
     double spawnRange = 64;
+
+    @Property
+    SpinMode spinMode = SpinMode.OFF;
+
+    @Property
+    @Serializer(RangedValueSerializer.class)
+    @Deserializer(RangedValueSerializer.class)
+    RangedDoubleValue spinSpeed = RangedDoubleValue.of("0");
+
+    public SpinMode getSpinMode() {
+        return spinMode;
+    }
+
+    public RangedDoubleValue getSpinSpeed() {
+        return spinSpeed;
+    }
+
     public double getSpawnRange() {
         return spawnRange;
     }
