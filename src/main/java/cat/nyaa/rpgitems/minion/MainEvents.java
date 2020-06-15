@@ -6,10 +6,12 @@ import cat.nyaa.rpgitems.minion.events.*;
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.MinionStatus;
+import cat.nyaa.rpgitems.minion.minion.impl.BaseMinion;
 import cat.nyaa.rpgitems.minion.power.marker.ConditionedMarker;
 import cat.nyaa.rpgitems.minion.power.marker.MinionMax;
 import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
 import cat.nyaa.rpgitems.minion.utils.ConditionChecker;
+import org.bukkit.Chunk;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -21,6 +23,8 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -222,6 +226,27 @@ public class MainEvents implements Listener {
         IMinion mountMinion = instance.toIMinion(mount);
         if (entityMinion != null || mountMinion != null){
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onChunkLoad(ChunkLoadEvent event){
+        removeEntitiesInChunk(event.getChunk());
+    }
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onChunkUnload(ChunkUnloadEvent event){
+        removeEntitiesInChunk(event.getChunk());
+    }
+
+    private void removeEntitiesInChunk(Chunk chunk) {
+        Entity[] entities = chunk.getEntities();
+        if (entities.length > 0){
+            for (Entity entity : entities) {
+                Set<String> scoreboardTags = entity.getScoreboardTags();
+                if (scoreboardTags.contains(BaseMinion.TAG_MINION)){
+                    entity.remove();
+                }
+            }
         }
     }
 

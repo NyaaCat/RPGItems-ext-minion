@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class BaseMinion implements IMinion {
+    public static final String TAG_MINION = "rpgitems-minion";
     private OfflinePlayer owner;
     private ItemStack fromItem;
     private boolean removed = false;
@@ -231,9 +232,9 @@ public abstract class BaseMinion implements IMinion {
             NmsUtils.setEntityTag(trackedEntity, nbt);
         }
         Set<String> scoreboardTags = trackedEntity.getScoreboardTags();
-        if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
+        if (!scoreboardTags.contains(Utils.INVALID_TARGET) || scoreboardTags.contains(TAG_MINION)){
             trackedEntity.addScoreboardTag(Utils.INVALID_TARGET);
-            trackedEntity.addScoreboardTag("rpgitems-minion");
+            trackedEntity.addScoreboardTag(TAG_MINION);
         }
         if (trackedEntity instanceof LivingEntity) {
             LivingEntity livingEntity = (LivingEntity) this.trackedEntity;
