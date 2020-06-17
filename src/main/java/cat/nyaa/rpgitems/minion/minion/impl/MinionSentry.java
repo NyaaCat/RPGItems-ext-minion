@@ -163,15 +163,17 @@ public class MinionSentry extends BaseMinion implements ISentry {
                     return;
                 }
             }
+
             Location selfLocation = getSelfLocation(trackedEntity);
             Location target = targetLocation.clone();
             if (entity != null){
                 target = getSelfLocation(entity);
             }
-            Location subtract = target.subtract(selfLocation);
-            subtract.setDirection(subtract.toVector());
+            Location tool = selfLocation.clone();
+            Vector subtract = target.toVector().subtract(selfLocation.toVector());
+            tool.setDirection(subtract);
             if (MinionSentry.this.spinMode.equals(SpinMode.ALWAYS)){
-                trackedEntity.setRotation(subtract.getYaw(), subtract.getPitch());
+                trackedEntity.setRotation(tool.getYaw(), tool.getPitch());
             }
             broadcastAttack(owner.getPlayer());
             new BukkitRunnable() {

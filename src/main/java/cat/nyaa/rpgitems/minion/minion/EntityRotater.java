@@ -135,7 +135,7 @@ public class EntityRotater implements Rotatable {
                 if (target != null){
                     eyeLocation = getSelfLocation(target);
                 }
-                Vector targetDirection = eyeLocation.clone().subtract(selfLocation).toVector();
+                Vector targetDirection = eyeLocation.clone().toVector().subtract(selfLocation.toVector());
 
                 double toRotate = Math.toDegrees(Utils.angle(
                         selfLocation.clone().getDirection().setY(0),
