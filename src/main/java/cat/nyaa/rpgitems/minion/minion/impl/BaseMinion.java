@@ -188,6 +188,7 @@ public abstract class BaseMinion implements IMinion {
             rotater.setPitchOnly(false);
         }
         attackCooldown--;
+//        setTarget(getNearestPlayer(getEntity(), 100).orElse(null));
     }
 
     @Override

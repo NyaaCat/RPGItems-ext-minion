@@ -5,8 +5,6 @@ import cat.nyaa.rpgitems.minion.minion.*;
 import cat.nyaa.rpgitems.minion.power.impl.Sentry;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Particle;
-import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -153,6 +151,11 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 this.cancel();
                 return;
             }
+            if (!isSameWorld(owner.getPlayer().getLocation(), getSelfLocation(getEntity()))){
+                MinionManager.getInstance().removeMinion(MinionSentry.this);
+                this.cancel();
+                return;
+            }
             if (!MinionSentry.this.spinMode.equals(SpinMode.ALWAYS) && !checkRotation()){
                 rotateToTarget();
                 return;
@@ -170,6 +173,10 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 target = getSelfLocation(entity);
             }
             Location tool = selfLocation.clone();
+            if (!isSameWorld(target, selfLocation)){
+                cancel();
+                return;
+            }
             Vector subtract = target.toVector().subtract(selfLocation.toVector());
             tool.setDirection(subtract);
             if (MinionSentry.this.spinMode.equals(SpinMode.ALWAYS)){
@@ -238,12 +245,20 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 target = getSelfLocation(entity);
             }
             Location selfLocation = getSelfLocation(trackedEntity);
+            if (!isSameWorld(target, selfLocation)){
+                cancel();
+                return false;
+            }
             Location subtract = target.subtract(selfLocation);
 
             double angle = Math.toDegrees(subtract.toVector().angle(selfLocation.getDirection()));
             return !getRotater().isRotating() && angle < 5;
         }
 
+    }
+
+    private boolean isSameWorld(Location target, Location selfLocation) {
+        return selfLocation.getWorld().equals(target.getWorld());
     }
 
     enum AttackMode{
