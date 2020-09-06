@@ -161,7 +161,15 @@ public class EntityRotater implements Rotatable {
                     dRotate = 0;
                 }
 
-                trackedEntity.setRotation((float) (selfLocation.getYaw() + dRotate), ((float) (selfLocation.getPitch() + dPitch)));
+                float yaw = (float) (selfLocation.getYaw() + dRotate);
+                float pitch = (float) (selfLocation.getPitch() + dPitch);
+                if (Float.isInfinite(yaw)){
+                    yaw = 0;
+                }
+                if (Float.isInfinite(pitch)){
+                    pitch = 0;
+                }
+                trackedEntity.setRotation(yaw, pitch);
 
                 if (Math.abs(dRotate) < Math.abs(maxTickRotation) && Math.abs(dPitch) < Math.abs(maxTickPitch)) {
                     finish();
