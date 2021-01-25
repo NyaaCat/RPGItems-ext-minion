@@ -26,10 +26,30 @@ import static think.rpgitems.power.Utils.checkCooldown;
 @Meta(defaultTrigger = "RIGHT_CLICK", implClass = Sentry.Impl.class)
 public class Sentry extends BaseMinionPower {
     @Property
+    int cooldown = 0;
+    @Property
+    int cost = 0;
+    @Property
     SentryTypes sentryType = SentryTypes.REGULAR;
 
     public SentryTypes getSentryType() {
         return sentryType;
+    }
+
+    public int getCooldown() {
+        return cooldown;
+    }
+
+    public void setCooldown(int cooldown) {
+        this.cooldown = cooldown;
+    }
+
+    public int getCost() {
+        return cost;
+    }
+
+    public void setCost(int cost) {
+        this.cost = cost;
     }
 
     @Override

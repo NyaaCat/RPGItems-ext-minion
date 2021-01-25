@@ -51,7 +51,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
     @Override
     protected EntityInfo getEntityInfo() {
         Sentry sentryPower = getSentryPower();
-        return new EntityInfo(sentryPower.getEntityType(), sentryPower.getTags(), sentryPower.getNbt());
+        return new EntityInfo(sentryPower.getEntityType(), sentryPower.getNbtTags(), sentryPower.getNbt());
     }
 
     @Override

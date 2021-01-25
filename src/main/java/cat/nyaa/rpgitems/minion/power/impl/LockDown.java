@@ -25,7 +25,27 @@ import static think.rpgitems.power.Utils.checkCooldown;
 @Meta(defaultTrigger = "LEFT_CLICK", implClass = LockDown.Impl.class)
 public class LockDown extends BasePower {
     @Property
+    int cooldown = 0;
+    @Property
+    int cost = 0;
+    @Property
     int targetRange = 64;
+
+    public int getCooldown() {
+        return cooldown;
+    }
+
+    public void setCooldown(int cooldown) {
+        this.cooldown = cooldown;
+    }
+
+    public int getCost() {
+        return cost;
+    }
+
+    public void setCost(int cost) {
+        this.cost = cost;
+    }
 
     @Override
     public String displayText() {

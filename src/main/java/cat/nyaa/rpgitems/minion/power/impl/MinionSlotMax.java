@@ -19,10 +19,30 @@ import static think.rpgitems.power.Utils.checkCooldown;
 @Meta(defaultTrigger = "RIGHT_CLICK", implClass = MinionSlotMax.Impl.class)
 public class MinionSlotMax extends BasePower{
     @Property
+    int cooldown = 0;
+    @Property
+    int cost = 0;
+    @Property
     public int max = 1;
 
     public int getMax() {
         return max;
+    }
+
+    public int getCooldown() {
+        return cooldown;
+    }
+
+    public void setCooldown(int cooldown) {
+        this.cooldown = cooldown;
+    }
+
+    public int getCost() {
+        return cost;
+    }
+
+    public void setCost(int cost) {
+        this.cost = cost;
     }
 
     @Override

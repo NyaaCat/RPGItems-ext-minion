@@ -2,6 +2,7 @@ package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.minion.*;
 import org.bukkit.entity.EntityType;
+import think.rpgitems.power.BasePower;
 import think.rpgitems.power.Deserializer;
 import think.rpgitems.power.Property;
 import think.rpgitems.power.Serializer;
@@ -38,7 +39,7 @@ public abstract class BaseMinionPower extends BasePower {
     @Property
     double damage = 1;
     @Property
-    List<String> tags = new ArrayList<>();
+    List<String> nbtTags = new ArrayList<>();
     @Property
     boolean autoAttackTarget = true;
     @Property
@@ -104,8 +105,8 @@ public abstract class BaseMinionPower extends BasePower {
         return ranAtkIntFac;
     }
 
-    public List<String> getTags() {
-        return tags;
+    public List<String> getNbtTags() {
+        return nbtTags;
     }
 
     public double getTargetRange() {
