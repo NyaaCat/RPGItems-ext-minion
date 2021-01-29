@@ -1,8 +1,10 @@
 package cat.nyaa.rpgitems.minion.power.impl;
 
-import cat.nyaa.rpgitems.minion.minion.*;
+import cat.nyaa.rpgitems.minion.minion.MoveType;
+import cat.nyaa.rpgitems.minion.minion.SpinMode;
+import cat.nyaa.rpgitems.minion.minion.TargetMode;
+import cat.nyaa.rpgitems.minion.power.BasePluginPower;
 import org.bukkit.entity.EntityType;
-import think.rpgitems.power.BasePower;
 import think.rpgitems.power.Deserializer;
 import think.rpgitems.power.Property;
 import think.rpgitems.power.Serializer;
@@ -12,7 +14,7 @@ import think.rpgitems.utils.cast.RangedValueSerializer;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class BaseMinionPower extends BasePower {
+public abstract class BaseMinionPower extends BasePluginPower {
 
     @Property
     EntityType entityType = EntityType.ZOMBIE;

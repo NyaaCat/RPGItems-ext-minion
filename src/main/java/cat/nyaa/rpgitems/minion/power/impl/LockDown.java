@@ -2,6 +2,7 @@ package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
+import cat.nyaa.rpgitems.minion.power.BasePluginPower;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -23,7 +24,7 @@ import java.util.List;
 import static think.rpgitems.power.Utils.checkCooldown;
 
 @Meta(defaultTrigger = "LEFT_CLICK", implClass = LockDown.Impl.class)
-public class LockDown extends BasePower {
+public class LockDown extends BasePluginPower {
     @Property
     int cooldown = 0;
     @Property

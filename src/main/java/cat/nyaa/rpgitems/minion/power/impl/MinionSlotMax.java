@@ -2,6 +2,7 @@ package cat.nyaa.rpgitems.minion.power.impl;
 
 import cat.nyaa.rpgitems.minion.database.Database;
 import cat.nyaa.rpgitems.minion.database.PlayerData;
+import cat.nyaa.rpgitems.minion.power.BasePluginPower;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -17,7 +18,7 @@ import think.rpgitems.power.*;
 import static think.rpgitems.power.Utils.checkCooldown;
 
 @Meta(defaultTrigger = "RIGHT_CLICK", implClass = MinionSlotMax.Impl.class)
-public class MinionSlotMax extends BasePower{
+public class MinionSlotMax extends BasePluginPower {
     @Property
     int cooldown = 0;
     @Property
