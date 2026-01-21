@@ -143,8 +143,9 @@ public class MinionSentry extends BaseMinion implements ISentry {
             if (!initialized){
                 initialize();
             }
-            if (getStatus().equals(MinionStatus.ATTACK)){
+            if (!getStatus().equals(MinionStatus.ATTACK)){
                 this.cancel();
+                return;
             }
             OfflinePlayer owner = getOwner();
             if (!owner.isOnline()) {
@@ -162,6 +163,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
             }
             if (isTargetAutoLocked()){
                 if (entity!=null && entity.getLocation().distance(getEntity().getLocation()) > targetingRange){
+                    setTarget(null);
                     this.cancel();
                     return;
                 }
