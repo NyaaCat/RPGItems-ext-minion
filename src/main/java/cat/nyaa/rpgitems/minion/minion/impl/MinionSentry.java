@@ -157,16 +157,17 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 this.cancel();
                 return;
             }
-            if (!MinionSentry.this.spinMode.equals(SpinMode.ALWAYS) && !checkRotation()){
-                rotateToTarget();
-                return;
-            }
+            // Check range BEFORE rotation check - if target is out of range, clear it
             if (isTargetAutoLocked()){
                 if (entity!=null && entity.getLocation().distance(getEntity().getLocation()) > targetingRange){
                     setTarget(null);
                     this.cancel();
                     return;
                 }
+            }
+            if (!MinionSentry.this.spinMode.equals(SpinMode.ALWAYS) && !checkRotation()){
+                rotateToTarget();
+                return;
             }
 
             Location selfLocation = getSelfLocation(trackedEntity);
@@ -251,9 +252,17 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 cancel();
                 return false;
             }
-            Location subtract = target.subtract(selfLocation);
-
-            double angle = Math.toDegrees(subtract.toVector().angle(selfLocation.getDirection()));
+            Vector direction = target.toVector().subtract(selfLocation.toVector());
+            double directionLength = direction.length();
+            // If target is very close (< 0.5 blocks), consider rotation complete
+            if (directionLength < 0.5) {
+                return true;
+            }
+            double angle = Math.toDegrees(direction.angle(selfLocation.getDirection()));
+            // Handle NaN from angle calculation (can happen with zero-length vectors)
+            if (Double.isNaN(angle)) {
+                return true;
+            }
             return !getRotater().isRotating() && angle < 5;
         }
 

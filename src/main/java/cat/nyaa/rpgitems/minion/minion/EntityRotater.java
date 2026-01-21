@@ -137,16 +137,31 @@ public class EntityRotater implements Rotatable {
                 }
                 Vector targetDirection = eyeLocation.clone().toVector().subtract(selfLocation.toVector());
 
+                // Handle zero-length direction vector (target at same location)
+                double directionLength = targetDirection.length();
+                if (directionLength < 0.01 || !Double.isFinite(directionLength)) {
+                    finish();
+                    return;
+                }
+
                 double toRotate = Math.toDegrees(Utils.angle(
                         selfLocation.clone().getDirection().setY(0),
                         targetDirection.clone().setY(0))
                 );
+                // Handle NaN from angle calculation
+                if (!Double.isFinite(toRotate)) {
+                    toRotate = 0;
+                }
                 if (toRotate > 180){
                     toRotate -= 360;
                 }
                 double toPitch = -selfLocation.getPitch() + Math.toDegrees(
                         Utils.angle(targetDirection.clone().setY(0), targetDirection)
                 );
+                // Handle NaN from pitch calculation
+                if (!Double.isFinite(toPitch)) {
+                    toPitch = 0;
+                }
 
                 int rSign = toRotate >= 0 ? 1 : -1;
                 int pSign = toPitch >= 0 ? 1 : -1;
@@ -163,10 +178,10 @@ public class EntityRotater implements Rotatable {
 
                 float yaw = (float) (selfLocation.getYaw() + dRotate);
                 float pitch = (float) (selfLocation.getPitch() + dPitch);
-                if (Float.isInfinite(yaw)){
+                if (Float.isInfinite(yaw) || Float.isNaN(yaw)){
                     yaw = 0;
                 }
-                if (Float.isInfinite(pitch)){
+                if (Float.isInfinite(pitch) || Float.isNaN(pitch)){
                     pitch = 0;
                 }
                 trackedEntity.setRotation(yaw, pitch);
