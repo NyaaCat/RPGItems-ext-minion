@@ -168,7 +168,8 @@ public abstract class BaseMinion implements IMinion {
             if(!target.isDead()){
                 setStatus(MinionStatus.ATTACK);
             }else {
-                setStatus(MinionStatus.IDLE);
+                // Clear the dead target so minion can find new targets
+                setTarget(null);
             }
         }
 
@@ -333,10 +334,18 @@ public abstract class BaseMinion implements IMinion {
         this.status = status;
     }
 
+    public static final String TAG_RPGITEM_IGNORE = "rpgitem_ignore";
+
     @Override
     public boolean isValidTarget(Entity target){
+        // Reject other minions
         IMinion iMinion = MinionManager.getInstance().toIMinion(target);
         if (iMinion != null){
+            return false;
+        }
+        // Reject entities with INVALID_TARGET or rpgitem_ignore tags (e.g., NPCs)
+        Set<String> tags = target.getScoreboardTags();
+        if (tags.contains(Utils.INVALID_TARGET) || tags.contains(TAG_RPGITEM_IGNORE)){
             return false;
         }
         switch (getTargetMode()){
