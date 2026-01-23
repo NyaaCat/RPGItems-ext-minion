@@ -6,6 +6,7 @@ import cat.nyaa.rpgitems.minion.events.*;
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.MinionStatus;
+import cat.nyaa.rpgitems.minion.minion.TargetPriority;
 import cat.nyaa.rpgitems.minion.minion.impl.BaseMinion;
 import cat.nyaa.rpgitems.minion.power.marker.ConditionedMarker;
 import cat.nyaa.rpgitems.minion.power.marker.MinionMax;
@@ -257,10 +258,10 @@ public class MainEvents implements Listener {
             return;
         }
         minions.forEach(minion -> {
-            if (minion.getStatus().equals(MinionStatus.IDLE)){
-                if (minion.isValidTarget(damager)){
-                    minion.setTarget(damager);
-                }
+            // Use PLAYER_COMBAT priority - this will override AUTO targets
+            // but not MANUAL targets (set via direct player interaction)
+            if (minion.isValidTarget(damager)){
+                minion.setTarget(damager, TargetPriority.PLAYER_COMBAT);
             }
         });
     }

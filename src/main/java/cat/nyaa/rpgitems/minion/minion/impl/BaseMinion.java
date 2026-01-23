@@ -43,6 +43,7 @@ public abstract class BaseMinion implements IMinion {
     protected double damage = 1;
     protected String display = "";
     protected boolean isTargetAutoLocked = false;
+    protected TargetPriority targetPriority = null;
     protected double ranAtkIntFac = 0.1;
     protected SpinMode spinMode = SpinMode.OFF;
     protected double spinSpeed = 0;
@@ -103,7 +104,7 @@ public abstract class BaseMinion implements IMinion {
     }
 
     protected void autoLockTarget(Entity target) {
-        setTarget(target);
+        setTarget(target, TargetPriority.AUTO);
         this.isTargetAutoLocked = true;
     }
 
@@ -118,11 +119,57 @@ public abstract class BaseMinion implements IMinion {
                 .commitRotating();
     }
 
+    /**
+     * Find the best valid target within range.
+     * Prioritizes targets based on:
+     * 1. Line of sight (LOS) - targets with LOS are preferred
+     * 2. Distance to player owner - closer to player is preferred
+     * 3. Distance to minion - as tiebreaker
+     */
     protected Optional<Entity> getNearestValidTarget(Entity trackedEntity, double range) {
-        Location location = trackedEntity.getLocation();
+        Location minionLocation = trackedEntity.getLocation();
+        Player ownerPlayer = owner != null ? owner.getPlayer() : null;
+        Location playerLocation = ownerPlayer != null ? ownerPlayer.getLocation() : minionLocation;
+
         return trackedEntity.getNearbyEntities(range, range, range).stream()
                 .filter(this::isValidTarget)
-                .min(Comparator.comparingDouble(player -> getSelfLocation(player).distance(location)));
+                .min((e1, e2) -> {
+                    // Check LOS for both entities
+                    boolean los1 = hasLineOfSight(trackedEntity, e1);
+                    boolean los2 = hasLineOfSight(trackedEntity, e2);
+
+                    // Prefer targets with LOS
+                    if (los1 && !los2) return -1;
+                    if (!los1 && los2) return 1;
+
+                    // Both have LOS or both don't - prefer closer to player
+                    double distToPlayer1 = getSelfLocation(e1).distance(playerLocation);
+                    double distToPlayer2 = getSelfLocation(e2).distance(playerLocation);
+
+                    // If distance to player differs significantly (>2 blocks), use that
+                    if (Math.abs(distToPlayer1 - distToPlayer2) > 2.0) {
+                        return Double.compare(distToPlayer1, distToPlayer2);
+                    }
+
+                    // Tiebreaker: distance to minion
+                    double distToMinion1 = getSelfLocation(e1).distance(minionLocation);
+                    double distToMinion2 = getSelfLocation(e2).distance(minionLocation);
+                    return Double.compare(distToMinion1, distToMinion2);
+                });
+    }
+
+    /**
+     * Check if the minion has line of sight to the target.
+     */
+    protected boolean hasLineOfSight(Entity from, Entity to) {
+        if (from instanceof LivingEntity) {
+            return ((LivingEntity) from).hasLineOfSight(to);
+        }
+        // For non-living entities, do a simple raycast check
+        Location fromLoc = getSelfLocation(from);
+        Location toLoc = getSelfLocation(to);
+        return fromLoc.getWorld().rayTraceBlocks(fromLoc, toLoc.toVector().subtract(fromLoc.toVector()).normalize(),
+                fromLoc.distance(toLoc)) == null;
     }
 
     private void lookAtPlayer(Player nearestPlayer) {
@@ -306,18 +353,36 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void setTarget(Entity target) {
+        // Default to MANUAL priority when called directly (e.g., from external code)
+        setTarget(target, TargetPriority.MANUAL);
+    }
+
+    @Override
+    public void setTarget(Entity target, TargetPriority priority) {
         if (target == trackedEntity){
             target = null;
         }
+
+        // Check if the new priority can override the current priority
+        // Only allow override if: target is null (clearing), or new priority is high enough
+        if (target != null && this.target != null && !this.target.isDead()) {
+            if (!priority.canOverride(this.targetPriority)) {
+                // Cannot override current target with lower priority
+                return;
+            }
+        }
+
         MinionChangeTargetEvent minionChangeTargetEvent = new MinionChangeTargetEvent(this, trackedEntity, target);
         Bukkit.getPluginManager().callEvent(minionChangeTargetEvent);
         this.target = target;
         if (target == null){
             targetLocation = null;
+            targetPriority = null;
         }else {
             targetLocation = getSelfLocation(target);
+            targetPriority = priority;
         }
-        isTargetAutoLocked = false;
+        isTargetAutoLocked = (priority == TargetPriority.AUTO);
         onTargetChange(target);
     }
 
@@ -389,6 +454,11 @@ public abstract class BaseMinion implements IMinion {
     @Override
     public boolean isTargetAutoLocked() {
         return isTargetAutoLocked;
+    }
+
+    @Override
+    public TargetPriority getTargetPriority() {
+        return targetPriority;
     }
 
     @Override
