@@ -145,6 +145,13 @@ public class MinionManager {
                     playerMinions.remove(iMinion);
                 }
             }
+        } else {
+            // Minion not in map, but try to remove entity by UUID anyway
+            // This handles cases where entity persists but minion tracking was lost
+            Entity entity = Bukkit.getEntity(uuid);
+            if (entity != null && !entity.isDead()) {
+                entity.remove();
+            }
         }
     }
 
@@ -154,20 +161,23 @@ public class MinionManager {
         }
         Entity entity = iMinion.getEntity();
         if (entity != null) {
-            // Normal case: remove by entity UUID
-            removeMinion(entity.getUniqueId());
-        } else {
-            // Entity is null - manually clean up
-            iMinion.remove();
-            OfflinePlayer owner = iMinion.getOwner();
-            if (owner != null) {
-                List<IMinion> playerMinions = playerMinionMap.get(owner.getUniqueId());
-                if (playerMinions != null) {
-                    playerMinions.remove(iMinion);
-                }
+            UUID entityUuid = entity.getUniqueId();
+            // Remove from map
+            entityMinionMap.remove(entityUuid);
+        }
+        // Also try to find and remove from entityMinionMap by value (in case UUID doesn't match)
+        entityMinionMap.values().remove(iMinion);
+
+        // Always call remove() to ensure entity is despawned
+        iMinion.remove();
+
+        // Clean up player minion list
+        OfflinePlayer owner = iMinion.getOwner();
+        if (owner != null) {
+            List<IMinion> playerMinions = playerMinionMap.get(owner.getUniqueId());
+            if (playerMinions != null) {
+                playerMinions.remove(iMinion);
             }
-            // Also try to find and remove from entityMinionMap by value
-            entityMinionMap.values().remove(iMinion);
         }
     }
 

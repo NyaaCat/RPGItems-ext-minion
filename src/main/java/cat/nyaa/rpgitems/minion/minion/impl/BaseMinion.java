@@ -405,7 +405,32 @@ public abstract class BaseMinion implements IMinion {
         }
         Entity entityToRemove = trackedEntity;
         trackedEntity = null; // Clear reference first to prevent any race conditions
-        entityToRemove.remove();
+
+        // Aggressively remove the entity
+        try {
+            // Remove any passengers first
+            if (!entityToRemove.getPassengers().isEmpty()) {
+                entityToRemove.eject();
+            }
+            // Leave any vehicle
+            if (entityToRemove.getVehicle() != null) {
+                entityToRemove.leaveVehicle();
+            }
+            // For living entities, also set health to 0 to ensure death
+            if (entityToRemove instanceof LivingEntity) {
+                LivingEntity living = (LivingEntity) entityToRemove;
+                living.setHealth(0);
+            }
+            // Finally call remove
+            entityToRemove.remove();
+        } catch (Exception e) {
+            // If any step fails, still try to remove
+            try {
+                entityToRemove.remove();
+            } catch (Exception ignored) {
+            }
+        }
+
         rotater.setTrackedEntity(null);
         spinner.setEntity(null);
         spinner.setSpinSpeed(spinSpeed);

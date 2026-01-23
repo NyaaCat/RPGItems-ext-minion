@@ -245,8 +245,13 @@ public class MainEvents implements Listener {
             for (Entity entity : entities) {
                 Set<String> scoreboardTags = entity.getScoreboardTags();
                 if (scoreboardTags.contains(BaseMinion.TAG_MINION)){
-                    // Use MinionManager to properly clean up both maps
+                    // Try to clean up via MinionManager first
                     MinionManager.getInstance().removeMinion(entity.getUniqueId());
+                    // Also forcefully remove the entity in case it's not tracked
+                    // (e.g., persisted through restart or already removed from manager)
+                    if (!entity.isDead()) {
+                        entity.remove();
+                    }
                 }
             }
         }
