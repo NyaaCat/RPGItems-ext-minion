@@ -120,6 +120,7 @@ public class LockDown extends BasePluginPower {
             List<IMinion> minions = MinionManager.getInstance().getMinions(player);
             if (!minions.isEmpty()) {
                 minions.forEach(minion -> {
+                    minion.setAutoAttack(true);
                     minion.setTargetLocation(location);
                 });
             }
@@ -132,6 +133,7 @@ public class LockDown extends BasePluginPower {
             List<IMinion> minions = MinionManager.getInstance().getMinions(player);
             if (!minions.isEmpty()) {
                 minions.forEach(minion -> {
+                    minion.setAutoAttack(true);
                     minion.setTarget(entity);
                 });
             }

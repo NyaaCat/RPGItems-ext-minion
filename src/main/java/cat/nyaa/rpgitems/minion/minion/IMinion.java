@@ -22,4 +22,7 @@ public interface IMinion extends Targetable, EntityHolderNonpersistent {
     void tick(int minionTick);
     void remove();
     boolean isRemoved();
+
+    void setAutoAttack(boolean autoAttack);
+    boolean isAutoAttack();
 }

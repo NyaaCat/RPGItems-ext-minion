@@ -568,4 +568,14 @@ public abstract class BaseMinion implements IMinion {
     public Optional<RPGItem> getRPGItem() {
         return ItemManager.toRPGItem(fromItem);
     }
+
+    @Override
+    public void setAutoAttack(boolean autoAttack) {
+        this.autoAttack = autoAttack;
+    }
+
+    @Override
+    public boolean isAutoAttack() {
+        return autoAttack;
+    }
 }
