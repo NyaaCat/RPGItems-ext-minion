@@ -131,9 +131,18 @@ public abstract class BaseMinion implements IMinion {
         Player ownerPlayer = owner != null ? owner.getPlayer() : null;
         Location playerLocation = ownerPlayer != null ? ownerPlayer.getLocation() : minionLocation;
 
-        return trackedEntity.getNearbyEntities(range, range, range).stream()
+        List<Entity> validTargets = trackedEntity.getNearbyEntities(range, range, range).stream()
                 .filter(this::isValidTarget)
-                .min((e1, e2) -> {
+                .collect(java.util.stream.Collectors.toList());
+
+        if (validTargets.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Sort with exception handling to prevent targeting failures
+        try {
+            validTargets.sort((e1, e2) -> {
+                try {
                     // Check LOS for both entities
                     boolean los1 = hasLineOfSight(trackedEntity, e1);
                     boolean los2 = hasLineOfSight(trackedEntity, e2);
@@ -155,21 +164,54 @@ public abstract class BaseMinion implements IMinion {
                     double distToMinion1 = getSelfLocation(e1).distance(minionLocation);
                     double distToMinion2 = getSelfLocation(e2).distance(minionLocation);
                     return Double.compare(distToMinion1, distToMinion2);
-                });
+                } catch (Exception e) {
+                    // Fallback to simple distance comparison if anything fails
+                    double d1 = e1.getLocation().distanceSquared(minionLocation);
+                    double d2 = e2.getLocation().distanceSquared(minionLocation);
+                    return Double.compare(d1, d2);
+                }
+            });
+        } catch (Exception e) {
+            // If sorting fails entirely, just return the first valid target
+            return Optional.of(validTargets.get(0));
+        }
+
+        return Optional.of(validTargets.get(0));
     }
 
     /**
      * Check if the minion has line of sight to the target.
      */
     protected boolean hasLineOfSight(Entity from, Entity to) {
-        if (from instanceof LivingEntity) {
-            return ((LivingEntity) from).hasLineOfSight(to);
+        try {
+            if (from instanceof LivingEntity) {
+                return ((LivingEntity) from).hasLineOfSight(to);
+            }
+            // For non-living entities, do a simple raycast check
+            Location fromLoc = getSelfLocation(from);
+            Location toLoc = getSelfLocation(to);
+
+            // Safety check: if locations are too close or in different worlds, assume LOS
+            if (!fromLoc.getWorld().equals(toLoc.getWorld())) {
+                return false;
+            }
+            double distance = fromLoc.distance(toLoc);
+            if (distance < 0.5) {
+                return true; // Very close, assume LOS
+            }
+
+            org.bukkit.util.Vector direction = toLoc.toVector().subtract(fromLoc.toVector());
+            double length = direction.length();
+            if (length < 0.001) {
+                return true; // Same location, assume LOS
+            }
+            direction.multiply(1.0 / length); // Normalize manually to avoid NaN
+
+            return fromLoc.getWorld().rayTraceBlocks(fromLoc, direction, distance) == null;
+        } catch (Exception e) {
+            // If anything fails, assume LOS to not block targeting
+            return true;
         }
-        // For non-living entities, do a simple raycast check
-        Location fromLoc = getSelfLocation(from);
-        Location toLoc = getSelfLocation(to);
-        return fromLoc.getWorld().rayTraceBlocks(fromLoc, toLoc.toVector().subtract(fromLoc.toVector()).normalize(),
-                fromLoc.distance(toLoc)) == null;
     }
 
     private void lookAtPlayer(Player nearestPlayer) {
