@@ -266,6 +266,10 @@ public abstract class BaseMinion implements IMinion {
         if (trackedEntity == null || trackedEntity.isDead()){
             respawn(lastTrackedLocation);
         }
+        // After respawn attempt, check if entity exists before continuing
+        if (trackedEntity == null) {
+            return;
+        }
         if (minionTick % 40 == 0 && getStatus().equals(MinionStatus.IDLE)){
             this.ambientAction();
         }
@@ -389,6 +393,10 @@ public abstract class BaseMinion implements IMinion {
                     livingEntity.teleport(clone, PlayerTeleportEvent.TeleportCause.PLUGIN);
                 }
             }
+        }
+        // Defensive null check - entity may have been removed concurrently
+        if (trackedEntity == null) {
+            return;
         }
         if (!tags.isEmpty()){
             tags.forEach(s -> trackedEntity.addScoreboardTag(s));
