@@ -247,10 +247,18 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void tick(int minionTick) {
+        // Check if already removed
+        if (removed) {
+            return;
+        }
+
         // Check if TTL has expired (backup mechanism in case scheduled task fails)
         // TTL is in ticks (20 ticks = 1 second), convert to milliseconds
         long ttlMillis = ttl * 50L; // 1 tick = 50ms
         if (spawnTimestamp > 0 && System.currentTimeMillis() - spawnTimestamp > ttlMillis) {
+            // Mark as removed first to prevent any respawn attempts
+            removed = true;
+            // Clean up from manager - this will call remove() which calls despawn()
             MinionManager.getInstance().removeMinion(this);
             return;
         }
@@ -321,6 +329,10 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void respawn(Location location) {
+        // Never respawn a removed minion
+        if (removed) {
+            return;
+        }
         EntityInfo entityInfo = getEntityInfo();
         EntityType entityType = entityInfo.getType();
         String nbt = entityInfo.getNbt();
@@ -391,7 +403,9 @@ public abstract class BaseMinion implements IMinion {
         if (trackedEntity == null){
             return;
         }
-        trackedEntity.remove();
+        Entity entityToRemove = trackedEntity;
+        trackedEntity = null; // Clear reference first to prevent any race conditions
+        entityToRemove.remove();
         rotater.setTrackedEntity(null);
         spinner.setEntity(null);
         spinner.setSpinSpeed(spinSpeed);
