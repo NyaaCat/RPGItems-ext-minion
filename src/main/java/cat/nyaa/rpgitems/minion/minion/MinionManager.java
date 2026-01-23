@@ -101,11 +101,11 @@ public class MinionManager {
             return;
         }
         if (minionTick%20 == 0){
-            boolean ticked = false;
             Entity entity = iMinion.getEntity();
             if (entity == null){
+                // Entity is null, just tick to trigger respawn
                 iMinion.tick(minionTick);
-                ticked = true;
+                return;
             }
             Set<String> scoreboardTags = entity.getScoreboardTags();
             if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
@@ -114,18 +114,16 @@ public class MinionManager {
             if (entity instanceof LivingEntity) {
                 ((LivingEntity) entity).setAI(false);
             }
-            if (ticked){
-                return;
-            }
         }
         iMinion.tick(minionTick);
     }
 
     private void doSanityCheck(Player player) {
-        List<UUID> toRemove = new ArrayList<>();
+        List<IMinion> toRemove = new ArrayList<>();
         getMinions(player).forEach(iMinion -> {
-            if (!entityMinionMap.containsKey(iMinion.getEntity().getUniqueId())) {
-                toRemove.add(iMinion.getEntity().getUniqueId());
+            Entity entity = iMinion.getEntity();
+            if (entity == null || !entityMinionMap.containsKey(entity.getUniqueId())) {
+                toRemove.add(iMinion);
             }
         });
         if (toRemove.isEmpty()) {
@@ -151,7 +149,26 @@ public class MinionManager {
     }
 
     public void removeMinion(IMinion iMinion) {
-         removeMinion(iMinion.getEntity().getUniqueId());
+        if (iMinion == null) {
+            return;
+        }
+        Entity entity = iMinion.getEntity();
+        if (entity != null) {
+            // Normal case: remove by entity UUID
+            removeMinion(entity.getUniqueId());
+        } else {
+            // Entity is null - manually clean up
+            iMinion.remove();
+            OfflinePlayer owner = iMinion.getOwner();
+            if (owner != null) {
+                List<IMinion> playerMinions = playerMinionMap.get(owner.getUniqueId());
+                if (playerMinions != null) {
+                    playerMinions.remove(iMinion);
+                }
+            }
+            // Also try to find and remove from entityMinionMap by value
+            entityMinionMap.values().remove(iMinion);
+        }
     }
 
     public void clear(){
