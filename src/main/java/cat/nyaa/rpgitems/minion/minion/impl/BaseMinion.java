@@ -180,32 +180,31 @@ public abstract class BaseMinion implements IMinion {
     }
 
     /**
-     * Check if the minion has line of sight to the target.
+     * Check if the minion has line of sight to the target (360 degree vision).
+     * Uses simple raycast to check for block occlusion only.
      */
     protected boolean hasLineOfSight(Entity from, Entity to) {
         try {
-            if (from instanceof LivingEntity) {
-                return ((LivingEntity) from).hasLineOfSight(to);
-            }
-            // For non-living entities, do a simple raycast check
             Location fromLoc = getSelfLocation(from);
             Location toLoc = getSelfLocation(to);
 
-            // Safety check: if locations are too close or in different worlds, assume LOS
+            // Safety check: different worlds
             if (!fromLoc.getWorld().equals(toLoc.getWorld())) {
                 return false;
             }
             double distance = fromLoc.distance(toLoc);
-            if (distance < 0.5) {
-                return true; // Very close, assume LOS
+            // Very close targets always have LOS
+            if (distance < 1.0) {
+                return true;
             }
 
+            // Simple raycast to check for block occlusion
             org.bukkit.util.Vector direction = toLoc.toVector().subtract(fromLoc.toVector());
             double length = direction.length();
             if (length < 0.001) {
-                return true; // Same location, assume LOS
+                return true;
             }
-            direction.multiply(1.0 / length); // Normalize manually to avoid NaN
+            direction.multiply(1.0 / length); // Normalize
 
             return fromLoc.getWorld().rayTraceBlocks(fromLoc, direction, distance) == null;
         } catch (Exception e) {
