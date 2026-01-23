@@ -140,6 +140,15 @@ public class MinionSentry extends BaseMinion implements ISentry {
 
         @Override
         public void run() {
+            try {
+                runAttackLogic();
+            } catch (Exception e) {
+                // Ensure attacking flag is reset on any failure to prevent stuck minions
+                this.cancel();
+            }
+        }
+
+        private void runAttackLogic() {
             if (!initialized){
                 initialize();
             }
@@ -148,18 +157,23 @@ public class MinionSentry extends BaseMinion implements ISentry {
                 return;
             }
             OfflinePlayer owner = getOwner();
-            if (!owner.isOnline()) {
+            if (owner == null || !owner.isOnline()) {
                 this.cancel();
                 return;
             }
-            if (!isSameWorld(owner.getPlayer().getLocation(), getSelfLocation(getEntity()))){
+            Entity minionEntity = getEntity();
+            if (minionEntity == null || minionEntity.isDead()) {
+                this.cancel();
+                return;
+            }
+            if (!isSameWorld(owner.getPlayer().getLocation(), getSelfLocation(minionEntity))){
                 MinionManager.getInstance().removeMinion(MinionSentry.this);
                 this.cancel();
                 return;
             }
             // Check range BEFORE rotation check - if target is out of range, clear it
             if (isTargetAutoLocked()){
-                if (entity!=null && entity.getLocation().distance(getEntity().getLocation()) > targetingRange){
+                if (entity != null && entity.getLocation().distance(minionEntity.getLocation()) > targetingRange){
                     setTarget(null);
                     // Immediately try to find new target within range
                     // Attack cooldown is still respected in attack() method
@@ -182,6 +196,10 @@ public class MinionSentry extends BaseMinion implements ISentry {
             }
 
             Location selfLocation = getSelfLocation(trackedEntity);
+            if (targetLocation == null) {
+                this.cancel();
+                return;
+            }
             Location target = targetLocation.clone();
             if (entity != null){
                 target = getSelfLocation(entity);
@@ -254,27 +272,35 @@ public class MinionSentry extends BaseMinion implements ISentry {
         }
 
         private boolean checkRotation() {
-            Location target = targetLocation.clone();
-            if (entity != null){
-                target = getSelfLocation(entity);
-            }
-            Location selfLocation = getSelfLocation(trackedEntity);
-            if (!isSameWorld(target, selfLocation)){
-                cancel();
-                return false;
-            }
-            Vector direction = target.toVector().subtract(selfLocation.toVector());
-            double directionLength = direction.length();
-            // If target is very close (< 0.5 blocks), consider rotation complete
-            if (directionLength < 0.5) {
+            try {
+                if (targetLocation == null || trackedEntity == null) {
+                    return true; // Can't check rotation, proceed with attack
+                }
+                Location target = targetLocation.clone();
+                if (entity != null){
+                    target = getSelfLocation(entity);
+                }
+                Location selfLocation = getSelfLocation(trackedEntity);
+                if (!isSameWorld(target, selfLocation)){
+                    cancel();
+                    return false;
+                }
+                Vector direction = target.toVector().subtract(selfLocation.toVector());
+                double directionLength = direction.length();
+                // If target is very close (< 0.5 blocks), consider rotation complete
+                if (directionLength < 0.5) {
+                    return true;
+                }
+                double angle = Math.toDegrees(direction.angle(selfLocation.getDirection()));
+                // Handle NaN from angle calculation (can happen with zero-length vectors)
+                if (Double.isNaN(angle)) {
+                    return true;
+                }
+                return !getRotater().isRotating() && angle < 5;
+            } catch (Exception e) {
+                // If check fails, assume rotation is complete to allow attack
                 return true;
             }
-            double angle = Math.toDegrees(direction.angle(selfLocation.getDirection()));
-            // Handle NaN from angle calculation (can happen with zero-length vectors)
-            if (Double.isNaN(angle)) {
-                return true;
-            }
-            return !getRotater().isRotating() && angle < 5;
         }
 
     }
