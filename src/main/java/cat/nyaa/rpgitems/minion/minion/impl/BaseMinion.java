@@ -344,6 +344,14 @@ public abstract class BaseMinion implements IMinion {
         UUID oldUid = trackedEntity == null ? null : trackedEntity.getUniqueId();
         despawn();
         trackedEntity = world.spawnEntity(location, entityType);
+        if (trackedEntity == null) {
+            // Entity failed to spawn - mark as removed
+            removed = true;
+            if (oldUid != null) {
+                MinionManager.getInstance().removeMinion(oldUid);
+            }
+            return;
+        }
         MinionManager.getInstance().replaceEntity(oldUid, trackedEntity.getUniqueId(), this);
 
         if (nbt != null && !nbt.equals("")){
