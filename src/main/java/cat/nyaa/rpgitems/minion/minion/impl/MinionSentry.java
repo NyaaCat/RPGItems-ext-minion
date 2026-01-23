@@ -161,6 +161,17 @@ public class MinionSentry extends BaseMinion implements ISentry {
             if (isTargetAutoLocked()){
                 if (entity!=null && entity.getLocation().distance(getEntity().getLocation()) > targetingRange){
                     setTarget(null);
+                    // Immediately try to find new target within range
+                    // Attack cooldown is still respected in attack() method
+                    if (autoAttack && trackedEntity != null && !trackedEntity.isDead()) {
+                        java.util.Optional<Entity> newTarget = getNearestValidTarget(trackedEntity, targetingRange);
+                        if (newTarget.isPresent()) {
+                            autoLockTarget(newTarget.get());
+                            // Update this task's entity reference to continue attacking
+                            this.entity = newTarget.get();
+                            return;
+                        }
+                    }
                     this.cancel();
                     return;
                 }

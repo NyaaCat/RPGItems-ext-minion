@@ -136,12 +136,16 @@ public class MinionManager {
 
     public void removeMinion(UUID uuid) {
         IMinion iMinion = entityMinionMap.remove(uuid);
-        if (iMinion!=null){
+        if (iMinion != null){
             iMinion.remove();
-            OfflinePlayer opt = iMinion.getOwner();
-            Player player;
-            if (opt != null && (player = opt.getPlayer()) != null){
-                playerMinionMap.computeIfAbsent(player.getUniqueId(), uuid1 -> createMinionList()).remove(iMinion);
+            OfflinePlayer owner = iMinion.getOwner();
+            if (owner != null){
+                // Use owner's UUID directly instead of relying on getPlayer()
+                // This ensures cleanup works even when owner is offline
+                List<IMinion> playerMinions = playerMinionMap.get(owner.getUniqueId());
+                if (playerMinions != null) {
+                    playerMinions.remove(iMinion);
+                }
             }
         }
     }

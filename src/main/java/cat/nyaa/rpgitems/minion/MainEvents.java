@@ -244,7 +244,8 @@ public class MainEvents implements Listener {
             for (Entity entity : entities) {
                 Set<String> scoreboardTags = entity.getScoreboardTags();
                 if (scoreboardTags.contains(BaseMinion.TAG_MINION)){
-                    entity.remove();
+                    // Use MinionManager to properly clean up both maps
+                    MinionManager.getInstance().removeMinion(entity.getUniqueId());
                 }
             }
         }

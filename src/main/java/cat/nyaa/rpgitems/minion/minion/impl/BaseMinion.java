@@ -102,7 +102,7 @@ public abstract class BaseMinion implements IMinion {
         spinner.spin();
     }
 
-    private void autoLockTarget(Entity target) {
+    protected void autoLockTarget(Entity target) {
         setTarget(target);
         this.isTargetAutoLocked = true;
     }
@@ -118,7 +118,7 @@ public abstract class BaseMinion implements IMinion {
                 .commitRotating();
     }
 
-    private Optional<Entity> getNearestValidTarget(Entity trackedEntity, double range) {
+    protected Optional<Entity> getNearestValidTarget(Entity trackedEntity, double range) {
         Location location = trackedEntity.getLocation();
         return trackedEntity.getNearbyEntities(range, range, range).stream()
                 .filter(this::isValidTarget)
@@ -170,6 +170,12 @@ public abstract class BaseMinion implements IMinion {
             }else {
                 // Clear the dead target so minion can find new targets
                 setTarget(null);
+                // Immediately try to find new target instead of waiting for ambientAction
+                // Attack cooldown is still respected in attack() method
+                if (autoAttack && trackedEntity != null && !trackedEntity.isDead()) {
+                    Optional<Entity> newTarget = getNearestValidTarget(trackedEntity, targetingRange);
+                    newTarget.ifPresent(this::autoLockTarget);
+                }
             }
         }
 
