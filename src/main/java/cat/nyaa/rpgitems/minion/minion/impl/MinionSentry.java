@@ -35,12 +35,21 @@ public class MinionSentry extends BaseMinion implements ISentry {
         this.spinMode = sentryPower.getSpinMode();
         this.spinSpeed = sentryPower.getSpinSpeed().random();
         this.spinSpeedMax = sentryPower.getSpinSpeed().uniformed(1,1);
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                MinionManager.getInstance().removeMinion(MinionSentry.this);
-            }
-        }.runTaskLater(MinionExtensionPlugin.plugin, ttl);
+        try {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    try {
+                        MinionManager.getInstance().removeMinion(MinionSentry.this);
+                    } catch (Exception e) {
+                        // Fallback: use remove() method which handles cleanup
+                        remove();
+                    }
+                }
+            }.runTaskLater(MinionExtensionPlugin.plugin, ttl);
+        } catch (Exception e) {
+            // If task scheduling fails, the backup TTL check in tick() will handle it
+        }
     }
 
     @Override

@@ -40,6 +40,7 @@ public abstract class BaseMinion implements IMinion {
     protected TargetMode targetMode = TargetMode.MOBS;
     protected int attackInterval = 20;
     protected int ttl = 1;
+    protected long spawnTimestamp = 0;
     protected double damage = 1;
     protected String display = "";
     protected boolean isTargetAutoLocked = false;
@@ -55,6 +56,7 @@ public abstract class BaseMinion implements IMinion {
     public BaseMinion(Player owner, ItemStack fromItem) {
         this.owner = owner;
         this.fromItem = fromItem.clone();
+        this.spawnTimestamp = System.currentTimeMillis();
     }
 
     public OfflinePlayer getOwner() {
@@ -245,6 +247,14 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void tick(int minionTick) {
+        // Check if TTL has expired (backup mechanism in case scheduled task fails)
+        // TTL is in ticks (20 ticks = 1 second), convert to milliseconds
+        long ttlMillis = ttl * 50L; // 1 tick = 50ms
+        if (spawnTimestamp > 0 && System.currentTimeMillis() - spawnTimestamp > ttlMillis) {
+            MinionManager.getInstance().removeMinion(this);
+            return;
+        }
+
         if (trackedEntity == null || trackedEntity.isDead()){
             respawn(lastTrackedLocation);
         }
