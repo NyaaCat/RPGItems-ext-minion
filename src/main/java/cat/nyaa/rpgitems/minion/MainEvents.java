@@ -18,6 +18,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -46,12 +48,25 @@ import static think.rpgitems.Events.*;
 
 public class MainEvents implements Listener {
 
+    // Context key for tracking minion attack context
+    public static final String MINION_ATTACK_CONTEXT = "MinionAttackContext";
+
     @EventHandler
     public void onMinionAttack(MinionAttackEvent event){
         OfflinePlayer player = event.getPlayer();
         if (!player.isOnline()) return;
         event.getRPGItem().ifPresent(rpgitem -> {
-            rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_ATTACK);
+            Player onlinePlayer = player.getPlayer();
+            // Set minion attack context before triggering powers
+            // This allows us to track that any damage from this player during power execution
+            // is actually from a minion attack
+            LightContext.putTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT, event.getMinion());
+            try {
+                rpgitem.power(onlinePlayer, event.getItemStack(), event, BaseTrigger.MINION_ATTACK);
+            } finally {
+                // Clean up context after power execution
+                LightContext.putTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT, null);
+            }
         });
     }
 
@@ -99,6 +114,49 @@ public class MainEvents implements Listener {
             Optional<Double> result = rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_ATTACK_HIT);
             result.ifPresent(event::setDamage);
         });
+    }
+
+    // Monitor damage events from players to detect minion attack hits
+    // This triggers when a minion's attack (via beam, projectile, etc.) actually hits
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDealDamage(EntityDamageByEntityEvent evt) {
+        Entity damager = evt.getDamager();
+        Player player = null;
+
+        // Check if damager is player directly or a projectile shot by player
+        if (damager instanceof Player) {
+            player = (Player) damager;
+        } else if (damager instanceof Projectile) {
+            ProjectileSource shooter = ((Projectile) damager).getShooter();
+            if (shooter instanceof Player) {
+                player = (Player) shooter;
+            }
+        }
+
+        if (player == null) return;
+
+        // Check if this damage is from a minion attack context
+        Optional<Object> minionContext = LightContext.getTemp(player.getUniqueId(), MINION_ATTACK_CONTEXT);
+        if (!minionContext.isPresent() || minionContext.get() == null) return;
+
+        IMinion minion = (IMinion) minionContext.get();
+        Entity target = evt.getEntity();
+
+        // Don't trigger for damage to the minion's owner
+        if (target.getUniqueId().equals(player.getUniqueId())) return;
+
+        // Create and fire MinionAttackHitEvent
+        double damage = evt.getDamage();
+        MinionAttackHitEvent hitEvent = new MinionAttackHitEvent(minion, target, damage, evt);
+        Bukkit.getPluginManager().callEvent(hitEvent);
+
+        if (hitEvent.isCanceled()) {
+            evt.setCancelled(true);
+            return;
+        }
+
+        // Apply modified damage
+        evt.setDamage(hitEvent.getDamage());
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
