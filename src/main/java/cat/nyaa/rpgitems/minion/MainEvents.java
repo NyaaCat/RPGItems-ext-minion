@@ -41,6 +41,8 @@ import think.rpgitems.power.PropertyHolder;
 import think.rpgitems.utils.LightContext;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
@@ -50,6 +52,25 @@ public class MainEvents implements Listener {
 
     // Context key for tracking minion attack context
     public static final String MINION_ATTACK_CONTEXT = "MinionAttackContext";
+
+    // Track recent minion attacks with a time window (for async damage like projectiles)
+    // Map: PlayerUUID -> MinionAttackInfo (minion, timestamp)
+    private static final Map<UUID, MinionAttackInfo> recentMinionAttacks = new ConcurrentHashMap<>();
+    private static final long MINION_ATTACK_WINDOW_MS = 500; // 500ms window for projectiles
+
+    private static class MinionAttackInfo {
+        final IMinion minion;
+        final long timestamp;
+
+        MinionAttackInfo(IMinion minion) {
+            this.minion = minion;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        boolean isValid() {
+            return System.currentTimeMillis() - timestamp < MINION_ATTACK_WINDOW_MS;
+        }
+    }
 
     @EventHandler
     public void onMinionAttack(MinionAttackEvent event){
@@ -61,10 +82,14 @@ public class MainEvents implements Listener {
             // This allows us to track that any damage from this player during power execution
             // is actually from a minion attack
             LightContext.putTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT, event.getMinion());
+
+            // Also store in time-based cache for async damage (projectiles, delayed effects)
+            recentMinionAttacks.put(onlinePlayer.getUniqueId(), new MinionAttackInfo(event.getMinion()));
+
             try {
                 rpgitem.power(onlinePlayer, event.getItemStack(), event, BaseTrigger.MINION_ATTACK);
             } finally {
-                // Clean up context after power execution
+                // Clean up synchronous context after power execution
                 LightContext.putTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT, null);
             }
         });
@@ -106,19 +131,63 @@ public class MainEvents implements Listener {
         });
     }
 
-    @EventHandler
-    public void onMinionAttackHit(MinionAttackHitEvent event){
-        OfflinePlayer player = event.getPlayer();
-        if (!player.isOnline()) return;
-        event.getRPGItem().ifPresent(rpgitem ->{
-            Optional<Double> result = rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_ATTACK_HIT);
-            result.ifPresent(event::setDamage);
+    /**
+     * Trigger MINION_ATTACK_HIT powers on player equipment.
+     * Called directly with EntityDamageByEntityEvent so it properly chains with HIT/HIT_GLOBAL.
+     */
+    private void triggerMinionAttackHit(Player player, IMinion minion, EntityDamageByEntityEvent evt) {
+        // First, trigger powers on the minion's RPG item
+        ItemStack minionItem = minion.getItemStack();
+        Optional<RPGItem> minionRpgItem = ItemManager.toRPGItem(minionItem);
+        minionRpgItem.ifPresent(rpgitem -> {
+            Optional<Double> result = rpgitem.power(player, minionItem, evt, BaseTrigger.MINION_ATTACK_HIT);
+            if (result.isPresent()) {
+                double newDamage = result.get();
+                if (newDamage == -1) {
+                    evt.setCancelled(true);
+                    return;
+                }
+                evt.setDamage(newDamage);
+            }
         });
+        if (evt.isCancelled()) {
+            return;
+        }
+
+        // Then, trigger powers on the player's equipment
+        PlayerInventory inventory = player.getInventory();
+        ItemStack[] equipmentToCheck = new ItemStack[]{
+            inventory.getItemInMainHand(),
+            inventory.getItemInOffHand(),
+            inventory.getHelmet(),
+            inventory.getChestplate(),
+            inventory.getLeggings(),
+            inventory.getBoots()
+        };
+
+        for (ItemStack equipmentItem : equipmentToCheck) {
+            if (evt.isCancelled()) break;
+            if (equipmentItem == null || equipmentItem.getType().isAir()) continue;
+            Optional<RPGItem> rpgItemOpt = ItemManager.toRPGItem(equipmentItem);
+            if (!rpgItemOpt.isPresent()) continue;
+            if (equipmentItem.equals(minionItem)) continue;
+
+            RPGItem rpgItem = rpgItemOpt.get();
+            Optional<Double> result = rpgItem.power(player, equipmentItem, evt, BaseTrigger.MINION_ATTACK_HIT);
+            if (result.isPresent()) {
+                double newDamage = result.get();
+                if (newDamage == -1) {
+                    evt.setCancelled(true);
+                    break;
+                }
+                evt.setDamage(newDamage);
+            }
+        }
     }
 
     // Monitor damage events from players to detect minion attack hits
-    // This triggers when a minion's attack (via beam, projectile, etc.) actually hits
-    @EventHandler(priority = EventPriority.HIGH)
+    // Uses HIGH priority (same as RPGItems) - since this plugin loads after RPGItems, it runs after HIT/HIT_GLOBAL
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDealDamage(EntityDamageByEntityEvent evt) {
         Entity damager = evt.getDamager();
         Player player = null;
@@ -134,29 +203,31 @@ public class MainEvents implements Listener {
         }
 
         if (player == null) return;
+        if (evt.isCancelled()) return;
 
-        // Check if this damage is from a minion attack context
+        // Check if this damage is from a minion attack context (synchronous)
         Optional<Object> minionContext = LightContext.getTemp(player.getUniqueId(), MINION_ATTACK_CONTEXT);
-        if (!minionContext.isPresent() || minionContext.get() == null) return;
+        IMinion minion = null;
 
-        IMinion minion = (IMinion) minionContext.get();
+        if (minionContext.isPresent() && minionContext.get() != null) {
+            minion = (IMinion) minionContext.get();
+        } else {
+            // Check time-based cache for async damage (projectiles)
+            MinionAttackInfo attackInfo = recentMinionAttacks.get(player.getUniqueId());
+            if (attackInfo != null && attackInfo.isValid()) {
+                minion = attackInfo.minion;
+            }
+        }
+
+        if (minion == null) return;
         Entity target = evt.getEntity();
 
         // Don't trigger for damage to the minion's owner
         if (target.getUniqueId().equals(player.getUniqueId())) return;
 
-        // Create and fire MinionAttackHitEvent
-        double damage = evt.getDamage();
-        MinionAttackHitEvent hitEvent = new MinionAttackHitEvent(minion, target, damage, evt);
-        Bukkit.getPluginManager().callEvent(hitEvent);
-
-        if (hitEvent.isCanceled()) {
-            evt.setCancelled(true);
-            return;
-        }
-
-        // Apply modified damage
-        evt.setDamage(hitEvent.getDamage());
+        // Trigger MINION_ATTACK_HIT powers directly with the EntityDamageByEntityEvent
+        // This allows proper chaining with HIT/HIT_GLOBAL damage modifiers
+        triggerMinionAttackHit(player, minion, evt);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -189,27 +260,35 @@ public class MainEvents implements Listener {
                 return;
             }
             if (owner.isOnline()) {
-                double damage = evt.getDamage();
                 Player player = owner.getPlayer();
                 evt.setCancelled(true);
 
-                // Fire MinionAttackHitEvent to allow powers to modify damage
-                MinionAttackHitEvent hitEvent = new MinionAttackHitEvent(iMinion, entity, damage, evt);
-                Bukkit.getPluginManager().callEvent(hitEvent);
-                if (hitEvent.isCanceled()) {
-                    return;
-                }
-                // Use potentially modified damage from event
-                damage = hitEvent.getDamage();
-
+                // Get LightContext from minion - this contains the actual damage from RPGItems powers
                 Optional<Object> source = LightContext.getTemp(iMinion.getEntity().getUniqueId(), DAMAGE_SOURCE);
                 Optional<Object> overridingDamage = LightContext.getTemp(iMinion.getEntity().getUniqueId(), OVERRIDING_DAMAGE);
                 Optional<Object> supressMelee = LightContext.getTemp(iMinion.getEntity().getUniqueId(), SUPPRESS_MELEE);
                 Optional<Object> sourceItem = LightContext.getTemp(iMinion.getEntity().getUniqueId(), DAMAGE_SOURCE_ITEM);
+
+                // Transfer context to player
                 source.ifPresent(obj -> {LightContext.putTemp(player.getUniqueId(), DAMAGE_SOURCE, source.get());});
                 overridingDamage.ifPresent(obj -> {LightContext.putTemp(player.getUniqueId(), OVERRIDING_DAMAGE, overridingDamage.get());});
                 supressMelee.ifPresent(obj -> {LightContext.putTemp(player.getUniqueId(), SUPPRESS_MELEE, supressMelee.get());});
-                sourceItem.ifPresent(obj -> {LightContext.putTemp(player.getUniqueId(), DAMAGE_SOURCE_ITEM, sourceItem.get());});
+                if (sourceItem.isPresent()) {
+                    LightContext.putTemp(player.getUniqueId(), DAMAGE_SOURCE_ITEM, sourceItem.get());
+                } else {
+                    ItemStack minionItem = iMinion.getItemStack();
+                    if (minionItem != null) {
+                        LightContext.putTemp(player.getUniqueId(), DAMAGE_SOURCE_ITEM, minionItem);
+                    }
+                }
+
+                // Mark this redirected damage as a minion attack so MINION_ATTACK_HIT runs
+                LightContext.putTemp(player.getUniqueId(), MINION_ATTACK_CONTEXT, iMinion);
+                recentMinionAttacks.put(player.getUniqueId(), new MinionAttackInfo(iMinion));
+
+                // Use the modified damage from event
+                double damage = evt.getDamage();
+
                 ((LivingEntity) entity).damage(damage, player);
                 LightContext.clear();
             }

@@ -4,6 +4,7 @@ import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.impl.BaseMinion;
+import cat.nyaa.rpgitems.minion.minion.impl.ForceAttackService;
 import cat.nyaa.rpgitems.minion.power.BasePluginPower;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -97,10 +98,8 @@ public class ForceAttack extends BasePluginPower {
                     baseMinion.forceAttack();
                     anyAttacked = true;
                 } else {
-                    // Apply temporary interval multiplier
-                    if (intervalMultiplier != 1.0) {
-                        baseMinion.setTemporaryIntervalMultiplier(intervalMultiplier, duration);
-                    }
+                    // Ensure duration keeps forcing attacks (batched service)
+                    ForceAttackService.getInstance().apply(baseMinion, duration, intervalMultiplier);
                     // Force immediate first attack
                     baseMinion.forceAttack();
                     anyAttacked = true;

@@ -123,6 +123,7 @@ public class LockDown extends BasePluginPower {
                     minion.setAutoAttack(true);
                     minion.setTargetLocation(location);
                 });
+                player.playSound(player.getLocation(), "minecraft:block.vault.deactivate", 1.0f, 0.8f);
             }
             return PowerResult.ok();
         }
@@ -136,6 +137,7 @@ public class LockDown extends BasePluginPower {
                     minion.setAutoAttack(true);
                     minion.setTarget(entity);
                 });
+                player.playSound(player.getLocation(), "minecraft:block.vault.deactivate", 1.0f, 0.8f);
             }
             return PowerResult.ok();
         }

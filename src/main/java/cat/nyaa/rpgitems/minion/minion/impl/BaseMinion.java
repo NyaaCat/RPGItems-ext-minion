@@ -1,7 +1,6 @@
 package cat.nyaa.rpgitems.minion.minion.impl;
 
 import cat.nyaa.nyaacore.utils.NmsUtils;
-import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.events.MinionAmbientEvent;
 import cat.nyaa.rpgitems.minion.events.MinionAttackEvent;
 import cat.nyaa.rpgitems.minion.events.MinionChangeTargetEvent;
@@ -13,7 +12,6 @@ import org.bukkit.entity.*;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 import think.rpgitems.item.ItemManager;
 import think.rpgitems.item.RPGItem;
 import think.rpgitems.power.Utils;
@@ -53,10 +51,6 @@ public abstract class BaseMinion implements IMinion {
 
 
     protected int attackCooldown = 0;
-
-    // For temporary interval modification (forceAttack)
-    private BukkitTask intervalResetTask = null;
-    private int originalAttackInterval = -1;
 
     public BaseMinion(Player owner, ItemStack fromItem) {
         this.owner = owner;
@@ -636,30 +630,6 @@ public abstract class BaseMinion implements IMinion {
      * @param duration Duration in ticks before restoring original interval
      */
     public void setTemporaryIntervalMultiplier(double multiplier, int duration) {
-        if (multiplier <= 0) return;  // invalid value
-
-        // Save original value if not already modified
-        if (originalAttackInterval < 0) {
-            originalAttackInterval = attackInterval;
-        }
-
-        // Cancel previous reset task if any
-        if (intervalResetTask != null) {
-            intervalResetTask.cancel();
-        }
-
-        // Apply multiplier
-        this.attackInterval = (int) (originalAttackInterval * multiplier);
-
-        // Schedule reset task
-        intervalResetTask = Bukkit.getScheduler().runTaskLater(
-                MinionExtensionPlugin.plugin,
-                () -> {
-                    this.attackInterval = originalAttackInterval;
-                    originalAttackInterval = -1;
-                    intervalResetTask = null;
-                },
-                duration
-        );
+        IntervalModifierService.getInstance().apply(this, multiplier, duration);
     }
 }

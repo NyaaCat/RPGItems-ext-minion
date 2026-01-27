@@ -73,6 +73,7 @@ public class Ceasefire extends BasePluginPower {
                     minion.setTarget(null);
                     minion.setStatus(MinionStatus.IDLE);
                 });
+                player.playSound(player.getLocation(), "minecraft:block.vault.activate", 1.0f, 1.2f);
             }
             return PowerResult.ok();
         }
