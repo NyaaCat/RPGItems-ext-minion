@@ -12,6 +12,7 @@ import cat.nyaa.rpgitems.minion.power.marker.ConditionedMarker;
 import cat.nyaa.rpgitems.minion.power.marker.MinionMax;
 import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
 import cat.nyaa.rpgitems.minion.utils.ConditionChecker;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
@@ -90,6 +91,16 @@ public class MainEvents implements Listener {
         });
     }
 
+    @EventHandler
+    public void onMinionAttackHit(MinionAttackHitEvent event){
+        OfflinePlayer player = event.getPlayer();
+        if (!player.isOnline()) return;
+        event.getRPGItem().ifPresent(rpgitem ->{
+            Optional<Double> result = rpgitem.power(player.getPlayer(), event.getItemStack(), event, BaseTrigger.MINION_ATTACK_HIT);
+            result.ifPresent(event::setDamage);
+        });
+    }
+
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onMinionHurt(EntityDamageEvent evt){
         IMinion iMinion = MinionManager.getInstance().toIMinion(evt.getEntity());
@@ -123,6 +134,16 @@ public class MainEvents implements Listener {
                 double damage = evt.getDamage();
                 Player player = owner.getPlayer();
                 evt.setCancelled(true);
+
+                // Fire MinionAttackHitEvent to allow powers to modify damage
+                MinionAttackHitEvent hitEvent = new MinionAttackHitEvent(iMinion, entity, damage, evt);
+                Bukkit.getPluginManager().callEvent(hitEvent);
+                if (hitEvent.isCanceled()) {
+                    return;
+                }
+                // Use potentially modified damage from event
+                damage = hitEvent.getDamage();
+
                 Optional<Object> source = LightContext.getTemp(iMinion.getEntity().getUniqueId(), DAMAGE_SOURCE);
                 Optional<Object> overridingDamage = LightContext.getTemp(iMinion.getEntity().getUniqueId(), OVERRIDING_DAMAGE);
                 Optional<Object> supressMelee = LightContext.getTemp(iMinion.getEntity().getUniqueId(), SUPPRESS_MELEE);
