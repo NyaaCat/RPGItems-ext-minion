@@ -3,7 +3,6 @@ package cat.nyaa.rpgitems.minion;
 import cat.nyaa.rpgitems.minion.config.ConfigMain;
 import cat.nyaa.rpgitems.minion.database.Database;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
-import cat.nyaa.rpgitems.minion.minion.impl.ForceAttackService;
 import cat.nyaa.rpgitems.minion.minion.impl.IntervalModifierService;
 import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
 import org.bukkit.Bukkit;
@@ -37,7 +36,6 @@ public class MinionExtensionPlugin extends JavaPlugin implements Listener {
         mainEvents = new MainEvents();
         MinionManager.getInstance().init();
         IntervalModifierService.getInstance().start();
-        ForceAttackService.getInstance().start();
         onReload();
         minionCommand = new MinionCommand(this, i18n);
         Bukkit.getServer().getPluginCommand("rpgitem-minion").setExecutor(minionCommand);
@@ -71,7 +69,6 @@ public class MinionExtensionPlugin extends JavaPlugin implements Listener {
         super.onDisable();
         MinionManager.getInstance().clear();
         IntervalModifierService.getInstance().stop();
-        ForceAttackService.getInstance().stop();
     }
 
     public void onReload(){

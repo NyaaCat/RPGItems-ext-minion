@@ -1,12 +1,9 @@
 package cat.nyaa.rpgitems.minion.power.impl;
 
-import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.minion.IMinion;
 import cat.nyaa.rpgitems.minion.minion.MinionManager;
 import cat.nyaa.rpgitems.minion.minion.impl.BaseMinion;
-import cat.nyaa.rpgitems.minion.minion.impl.ForceAttackService;
 import cat.nyaa.rpgitems.minion.power.BasePluginPower;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -15,7 +12,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.scheduler.BukkitRunnable;
 import think.rpgitems.event.BeamEndEvent;
 import think.rpgitems.event.BeamHitBlockEvent;
 import think.rpgitems.power.*;
@@ -98,8 +94,8 @@ public class ForceAttack extends BasePluginPower {
                     baseMinion.forceAttack();
                     anyAttacked = true;
                 } else {
-                    // Ensure duration keeps forcing attacks (batched service)
-                    ForceAttackService.getInstance().apply(baseMinion, duration, intervalMultiplier);
+                    // Apply temporary cooldown multiplier only (no forced repeated attacks)
+                    baseMinion.setTemporaryIntervalMultiplier(intervalMultiplier, duration);
                     // Force immediate first attack
                     baseMinion.forceAttack();
                     anyAttacked = true;
