@@ -33,10 +33,10 @@ public class MinionExtensionPlugin extends JavaPlugin implements Listener {
     public void onEnable() {
         super.onEnable();
         plugin = this;
+        onReload();
         mainEvents = new MainEvents();
         MinionManager.getInstance().init();
         IntervalModifierService.getInstance().start();
-        onReload();
         minionCommand = new MinionCommand(this, i18n);
         Bukkit.getServer().getPluginCommand("rpgitem-minion").setExecutor(minionCommand);
         getServer().getPluginManager().registerEvents(mainEvents, this);

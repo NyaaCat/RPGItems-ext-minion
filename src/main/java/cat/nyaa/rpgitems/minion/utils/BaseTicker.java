@@ -29,6 +29,7 @@ public abstract class BaseTicker<T> implements Runnable, Consumer<T> {
 
     int c = 0;
     int size = 0;
+    int processed = 0;
 
     public BaseTicker() {
         super();
@@ -37,15 +38,22 @@ public abstract class BaseTicker<T> implements Runnable, Consumer<T> {
 
     @Override
     public void run() {
-        int batchInterval = getBatchInterval();
-        if (batchInterval >= 0 && c++ >= batchInterval){
+        int batchInterval = Math.max(1, getBatchInterval());
+        if (c >= batchInterval || (size == 0 && queue.isEmpty())){
             fill();
             c = 0;
+            processed = 0;
         }
-        int tasksInThisTick = (int) (Math.ceil((double) size / (double) batchInterval) + 1);
+        if (size <= 0) {
+            return;
+        }
+        c++;
+        int expectedProcessed = (int) Math.ceil((double) size * (double) c / (double) batchInterval);
+        int tasksInThisTick = Math.max(0, expectedProcessed - processed);
         while (!queue.isEmpty() && tasksInThisTick-- > 0){
             T poll = queue.poll();
             this.accept(poll);
+            processed++;
         }
     }
 

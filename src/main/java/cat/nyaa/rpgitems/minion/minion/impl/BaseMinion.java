@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public abstract class BaseMinion implements IMinion {
     public static final String TAG_MINION = "rpgitems-minion";
+    private static final int AMBIENT_INTERVAL = 40;
     private OfflinePlayer owner;
     private ItemStack fromItem;
     private boolean removed = false;
@@ -51,6 +52,8 @@ public abstract class BaseMinion implements IMinion {
 
 
     protected int attackCooldown = 0;
+    private int lastMinionTick = -1;
+    private int nextAmbientTick = -1;
 
     public BaseMinion(Player owner, ItemStack fromItem) {
         this.owner = owner;
@@ -73,12 +76,8 @@ public abstract class BaseMinion implements IMinion {
         }
         if (status.equals(MinionStatus.IDLE)){
             if (!rotater.isRotating()){
-                if (autoAttack){
-                    Optional<Entity> nearestValidTarget = getNearestValidTarget(trackedEntity, targetingRange);
-                    if (nearestValidTarget.isPresent()) {
-                        autoLockTarget(nearestValidTarget.get());
-                        return;
-                    }
+                if (acquirePreferredTarget()){
+                    return;
                 }
                 if (ThreadLocalRandom.current().nextDouble(1) < 0.5){
                     MinionAmbientEvent minionAmbientEvent = new MinionAmbientEvent(this, getEntity());
@@ -107,6 +106,46 @@ public abstract class BaseMinion implements IMinion {
     protected void autoLockTarget(Entity target) {
         setTarget(target, TargetPriority.AUTO);
         this.isTargetAutoLocked = true;
+    }
+
+    protected boolean acquirePreferredTarget() {
+        if (!autoAttack || trackedEntity == null || trackedEntity.isDead()) {
+            return false;
+        }
+
+        Player ownerPlayer = owner != null && owner.isOnline() ? owner.getPlayer() : null;
+        if (ownerPlayer != null) {
+            Optional<MinionManager.SharedTarget> sharedTarget = MinionManager.getInstance().getSharedTarget(ownerPlayer, this, trackedEntity, targetingRange);
+            if (sharedTarget.isPresent()) {
+                MinionManager.SharedTarget target = sharedTarget.get();
+                setTarget(target.getEntity(), target.getPriority());
+                return true;
+            }
+        }
+
+        Optional<Entity> nearestValidTarget = getNearestValidTarget(trackedEntity, targetingRange);
+        if (nearestValidTarget.isPresent()) {
+            autoLockTarget(nearestValidTarget.get());
+            return true;
+        }
+        return false;
+    }
+
+    protected boolean isTargetReachable(Entity target, double range) {
+        if (trackedEntity == null || trackedEntity.isDead() || target == null || target.isDead()) {
+            return false;
+        }
+        try {
+            Location selfLocation = getSelfLocation(trackedEntity);
+            Location targetLocation = getSelfLocation(target);
+            if (selfLocation.getWorld() == null || !selfLocation.getWorld().equals(targetLocation.getWorld())) {
+                return false;
+            }
+            double maxDistance = Math.max(0, range);
+            return selfLocation.distanceSquared(targetLocation) <= maxDistance * maxDistance;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private void lookAround() {
@@ -246,6 +285,8 @@ public abstract class BaseMinion implements IMinion {
 
     @Override
     public void tick(int minionTick) {
+        int elapsedTicks = updateTickState(minionTick);
+
         // Check if already removed
         if (removed) {
             return;
@@ -269,22 +310,18 @@ public abstract class BaseMinion implements IMinion {
         if (trackedEntity == null) {
             return;
         }
-        if (minionTick % 40 == 0 && getStatus().equals(MinionStatus.IDLE)){
+        tickAttackCooldown(elapsedTicks);
+        if (getStatus().equals(MinionStatus.IDLE) && shouldRunAmbientAction(minionTick)){
             this.ambientAction();
         }
         lastTrackedLocation = trackedEntity.getLocation();
         if (target != null){
-            if(!target.isDead()){
+            if(!target.isDead() && isTargetReachable(target, targetingRange)){
                 setStatus(MinionStatus.ATTACK);
             }else {
-                // Clear the dead target so minion can find new targets
+                // Clear invalid or unreachable targets so this minion can rejoin the group target or find a local fallback.
                 setTarget(null);
-                // Immediately try to find new target instead of waiting for ambientAction
-                // Attack cooldown is still respected in attack() method
-                if (autoAttack && trackedEntity != null && !trackedEntity.isDead()) {
-                    Optional<Entity> newTarget = getNearestValidTarget(trackedEntity, targetingRange);
-                    newTarget.ifPresent(this::autoLockTarget);
-                }
+                acquirePreferredTarget();
             }
         }
 
@@ -303,8 +340,36 @@ public abstract class BaseMinion implements IMinion {
         }else {
             rotater.setPitchOnly(false);
         }
-        attackCooldown--;
 //        setTarget(getNearestPlayer(getEntity(), 100).orElse(null));
+    }
+
+    private int updateTickState(int minionTick) {
+        int elapsedTicks = 1;
+        if (lastMinionTick >= 0) {
+            elapsedTicks = minionTick - lastMinionTick;
+            if (elapsedTicks <= 0) {
+                elapsedTicks = 1;
+            }
+        }
+        lastMinionTick = minionTick;
+        if (nextAmbientTick < 0) {
+            nextAmbientTick = minionTick;
+        }
+        return elapsedTicks;
+    }
+
+    private void tickAttackCooldown(int elapsedTicks) {
+        if (attackCooldown > 0) {
+            attackCooldown = Math.max(0, attackCooldown - elapsedTicks);
+        }
+    }
+
+    private boolean shouldRunAmbientAction(int minionTick) {
+        if (nextAmbientTick < 0 || minionTick >= nextAmbientTick) {
+            nextAmbientTick = minionTick + AMBIENT_INTERVAL;
+            return true;
+        }
+        return false;
     }
 
     @Override

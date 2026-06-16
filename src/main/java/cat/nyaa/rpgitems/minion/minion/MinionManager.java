@@ -1,17 +1,19 @@
 package cat.nyaa.rpgitems.minion.minion;
 
+import cat.nyaa.rpgitems.minion.MinionExtensionPlugin;
 import cat.nyaa.rpgitems.minion.database.Database;
 import cat.nyaa.rpgitems.minion.database.PlayerData;
 import cat.nyaa.rpgitems.minion.events.MinionMaxEvent;
+import cat.nyaa.rpgitems.minion.minion.impl.BaseMinion;
 import cat.nyaa.rpgitems.minion.utils.BaseTicker;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import think.rpgitems.power.Utils;
 
-import javax.xml.crypto.Data;
 import java.util.*;
 
 public class MinionManager {
@@ -54,6 +56,117 @@ public class MinionManager {
 
     public List<IMinion> getMinions(Player player){
         return Collections.unmodifiableList(playerMinionMap.computeIfAbsent(player.getUniqueId(), uuid -> createMinionList()));
+    }
+
+    public Optional<SharedTarget> getSharedTarget(Player player, IMinion requester, Entity seeker, double range) {
+        if (player == null || requester == null || seeker == null || seeker.isDead()) {
+            return Optional.empty();
+        }
+
+        Map<UUID, SharedTargetCandidate> candidates = new HashMap<>();
+        for (IMinion minion : getMinions(player)) {
+            Entity target = minion.getTarget();
+            if (!isShareableTarget(requester, seeker, target, range)) {
+                continue;
+            }
+
+            TargetPriority priority = minion.getTargetPriority();
+            if (priority == null) {
+                priority = TargetPriority.AUTO;
+            }
+            double distanceSquared = distanceSquared(seeker, target);
+            SharedTargetCandidate candidate = candidates.computeIfAbsent(target.getUniqueId(), uuid -> new SharedTargetCandidate(target));
+            candidate.add(priority, distanceSquared);
+        }
+
+        return candidates.values().stream()
+                .max(Comparator
+                        .comparingInt(SharedTargetCandidate::priorityWeight)
+                        .thenComparingInt(SharedTargetCandidate::getCount)
+                        .thenComparingDouble(candidate -> -candidate.getNearestDistanceSquared()))
+                .map(SharedTargetCandidate::toSharedTarget);
+    }
+
+    private boolean isShareableTarget(IMinion requester, Entity seeker, Entity target, double range) {
+        return target != null
+                && !target.isDead()
+                && requester.isValidTarget(target)
+                && isReachable(seeker, target, range);
+    }
+
+    private boolean isReachable(Entity seeker, Entity target, double range) {
+        try {
+            Location seekerLocation = BaseMinion.getSelfLocation(seeker);
+            Location targetLocation = BaseMinion.getSelfLocation(target);
+            if (seekerLocation.getWorld() == null || !seekerLocation.getWorld().equals(targetLocation.getWorld())) {
+                return false;
+            }
+            double maxDistance = Math.max(0, range);
+            return seekerLocation.distanceSquared(targetLocation) <= maxDistance * maxDistance;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private double distanceSquared(Entity seeker, Entity target) {
+        try {
+            return BaseMinion.getSelfLocation(seeker).distanceSquared(BaseMinion.getSelfLocation(target));
+        } catch (Exception e) {
+            return Double.MAX_VALUE;
+        }
+    }
+
+    public static class SharedTarget {
+        private final Entity entity;
+        private final TargetPriority priority;
+
+        private SharedTarget(Entity entity, TargetPriority priority) {
+            this.entity = entity;
+            this.priority = priority;
+        }
+
+        public Entity getEntity() {
+            return entity;
+        }
+
+        public TargetPriority getPriority() {
+            return priority;
+        }
+    }
+
+    private static class SharedTargetCandidate {
+        private final Entity entity;
+        private TargetPriority priority = TargetPriority.AUTO;
+        private int count = 0;
+        private double nearestDistanceSquared = Double.MAX_VALUE;
+
+        private SharedTargetCandidate(Entity entity) {
+            this.entity = entity;
+        }
+
+        private void add(TargetPriority priority, double distanceSquared) {
+            if (priority.ordinal() > this.priority.ordinal()) {
+                this.priority = priority;
+            }
+            count++;
+            nearestDistanceSquared = Math.min(nearestDistanceSquared, distanceSquared);
+        }
+
+        private int priorityWeight() {
+            return priority.ordinal();
+        }
+
+        private int getCount() {
+            return count;
+        }
+
+        private double getNearestDistanceSquared() {
+            return nearestDistanceSquared;
+        }
+
+        private SharedTarget toSharedTarget() {
+            return new SharedTarget(entity, priority);
+        }
     }
 
     private List<IMinion> createMinionList() {
@@ -100,20 +213,18 @@ public class MinionManager {
             removeMinion(iMinion);
             return;
         }
-        if (minionTick%20 == 0){
-            Entity entity = iMinion.getEntity();
-            if (entity == null){
-                // Entity is null, just tick to trigger respawn
-                iMinion.tick(minionTick);
-                return;
-            }
-            Set<String> scoreboardTags = entity.getScoreboardTags();
-            if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
-                entity.addScoreboardTag(Utils.INVALID_TARGET);
-            }
-            if (entity instanceof LivingEntity) {
-                ((LivingEntity) entity).setAI(false);
-            }
+        Entity entity = iMinion.getEntity();
+        if (entity == null){
+            // Entity is null, just tick to trigger respawn
+            iMinion.tick(minionTick);
+            return;
+        }
+        Set<String> scoreboardTags = entity.getScoreboardTags();
+        if (!scoreboardTags.contains(Utils.INVALID_TARGET)){
+            entity.addScoreboardTag(Utils.INVALID_TARGET);
+        }
+        if (entity instanceof LivingEntity) {
+            ((LivingEntity) entity).setAI(false);
         }
         iMinion.tick(minionTick);
     }
@@ -197,12 +308,22 @@ public class MinionManager {
         int minionTick = 0;
 
         public MinionTicker(){
-            setBatchInterval(0);
+            int batchInterval = 20;
+            if (MinionExtensionPlugin.plugin != null && MinionExtensionPlugin.plugin.config() != null) {
+                batchInterval = MinionExtensionPlugin.plugin.config().minionTickInterval;
+            }
+            setBatchInterval(Math.max(1, batchInterval));
         }
 
         @Override
         public void accept(IMinion iMinion) {
-            doMinionTick(iMinion, minionTick++);
+            doMinionTick(iMinion, minionTick);
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            minionTick++;
         }
 
         @Override
