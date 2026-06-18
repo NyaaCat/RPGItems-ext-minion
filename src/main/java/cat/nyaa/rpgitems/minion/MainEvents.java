@@ -14,6 +14,7 @@ import cat.nyaa.rpgitems.minion.power.trigger.BaseTrigger;
 import cat.nyaa.rpgitems.minion.utils.ConditionChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -26,11 +27,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.event.entity.EntityMountEvent;
 import think.rpgitems.item.ItemManager;
@@ -56,7 +59,10 @@ public class MainEvents implements Listener {
     // Track recent minion attacks with a time window (for async damage like projectiles)
     // Map: PlayerUUID -> MinionAttackInfo (minion, timestamp)
     private static final Map<UUID, MinionAttackInfo> recentMinionAttacks = new ConcurrentHashMap<>();
+    private static final Map<UUID, MinionAttackInfo> minionProjectiles = new ConcurrentHashMap<>();
     private static final long MINION_ATTACK_WINDOW_MS = 500; // 500ms window for projectiles
+    private static final long MINION_PROJECTILE_WINDOW_MS = 30_000;
+    private static final NamespacedKey RPGITEM_SOURCE_ENTITY_KEY = new NamespacedKey("rpgitems", "rpgitem_source_entity");
 
     private static class MinionAttackInfo {
         final IMinion minion;
@@ -67,8 +73,8 @@ public class MainEvents implements Listener {
             this.timestamp = System.currentTimeMillis();
         }
 
-        boolean isValid() {
-            return System.currentTimeMillis() - timestamp < MINION_ATTACK_WINDOW_MS;
+        boolean isValid(long maxAgeMs) {
+            return System.currentTimeMillis() - timestamp < maxAgeMs;
         }
     }
 
@@ -89,8 +95,7 @@ public class MainEvents implements Listener {
             try {
                 rpgitem.power(onlinePlayer, event.getItemStack(), event, BaseTrigger.MINION_ATTACK);
             } finally {
-                // Clean up synchronous context after power execution
-                LightContext.putTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT, null);
+                LightContext.removeTemp(onlinePlayer.getUniqueId(), MINION_ATTACK_CONTEXT);
             }
         });
     }
@@ -191,12 +196,29 @@ public class MainEvents implements Listener {
     public void onPlayerDealDamage(EntityDamageByEntityEvent evt) {
         Entity damager = evt.getDamager();
         Player player = null;
+        IMinion minion = null;
 
         // Check if damager is player directly or a projectile shot by player
         if (damager instanceof Player) {
             player = (Player) damager;
         } else if (damager instanceof Projectile) {
-            ProjectileSource shooter = ((Projectile) damager).getShooter();
+            Projectile projectile = (Projectile) damager;
+            MinionAttackInfo projectileInfo = minionProjectiles.get(projectile.getUniqueId());
+            if (projectileInfo != null) {
+                if (projectileInfo.isValid(MINION_PROJECTILE_WINDOW_MS)) {
+                    minion = projectileInfo.minion;
+                    player = getOnlineOwner(minion);
+                } else {
+                    minionProjectiles.remove(projectile.getUniqueId());
+                }
+            }
+            if (minion == null) {
+                minion = getProjectileSourceMinion(projectile);
+                if (minion != null) {
+                    player = getOnlineOwner(minion);
+                }
+            }
+            ProjectileSource shooter = projectile.getShooter();
             if (shooter instanceof Player) {
                 player = (Player) shooter;
             }
@@ -207,14 +229,13 @@ public class MainEvents implements Listener {
 
         // Check if this damage is from a minion attack context (synchronous)
         Optional<Object> minionContext = LightContext.getTemp(player.getUniqueId(), MINION_ATTACK_CONTEXT);
-        IMinion minion = null;
 
-        if (minionContext.isPresent() && minionContext.get() != null) {
+        if (minion == null && minionContext.isPresent() && minionContext.get() != null) {
             minion = (IMinion) minionContext.get();
-        } else {
+        } else if (minion == null) {
             // Check time-based cache for async damage (projectiles)
             MinionAttackInfo attackInfo = recentMinionAttacks.get(player.getUniqueId());
-            if (attackInfo != null && attackInfo.isValid()) {
+            if (attackInfo != null && attackInfo.isValid(MINION_ATTACK_WINDOW_MS)) {
                 minion = attackInfo.minion;
             }
         }
@@ -228,6 +249,63 @@ public class MainEvents implements Listener {
         // Trigger MINION_ATTACK_HIT powers directly with the EntityDamageByEntityEvent
         // This allows proper chaining with HIT/HIT_GLOBAL damage modifiers
         triggerMinionAttackHit(player, minion, evt);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMinionProjectileLaunch(ProjectileLaunchEvent event) {
+        IMinion minion = getProjectileMinion(event.getEntity());
+        if (minion == null) {
+            return;
+        }
+        UUID projectileId = event.getEntity().getUniqueId();
+        minionProjectiles.put(projectileId, new MinionAttackInfo(minion));
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                minionProjectiles.remove(projectileId);
+            }
+        }.runTaskLater(MinionExtensionPlugin.plugin, MINION_PROJECTILE_WINDOW_MS / 50L);
+    }
+
+    private IMinion getProjectileMinion(Projectile projectile) {
+        ProjectileSource shooter = projectile.getShooter();
+        if (shooter instanceof Entity) {
+            IMinion minion = MinionManager.getInstance().toIMinion((Entity) shooter);
+            if (minion != null) {
+                return minion;
+            }
+        }
+        if (shooter instanceof Player) {
+            Optional<Object> minionContext = LightContext.getTemp(((Player) shooter).getUniqueId(), MINION_ATTACK_CONTEXT);
+            if (minionContext.isPresent() && minionContext.get() instanceof IMinion) {
+                return (IMinion) minionContext.get();
+            }
+        }
+        return null;
+    }
+
+    private IMinion getProjectileSourceMinion(Projectile projectile) {
+        String sourceId = projectile.getPersistentDataContainer().get(RPGITEM_SOURCE_ENTITY_KEY, PersistentDataType.STRING);
+        if (sourceId == null) {
+            return null;
+        }
+        try {
+            Entity source = Bukkit.getEntity(UUID.fromString(sourceId));
+            if (source == null) {
+                return null;
+            }
+            return MinionManager.getInstance().toIMinion(source);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Player getOnlineOwner(IMinion minion) {
+        OfflinePlayer owner = minion.getOwner();
+        if (owner == null || !owner.isOnline()) {
+            return null;
+        }
+        return owner.getPlayer();
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)

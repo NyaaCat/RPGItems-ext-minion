@@ -99,8 +99,12 @@ public abstract class BaseMinion implements IMinion {
         }
     }
 
-    private void selfSpin() {
+    protected void selfSpin() {
         spinner.spin();
+    }
+
+    protected boolean usesIndependentCombatTick() {
+        return false;
     }
 
     protected void autoLockTarget(Entity target) {
@@ -310,7 +314,9 @@ public abstract class BaseMinion implements IMinion {
         if (trackedEntity == null) {
             return;
         }
-        tickAttackCooldown(elapsedTicks);
+        if (!usesIndependentCombatTick()) {
+            tickAttackCooldown(elapsedTicks);
+        }
         if (getStatus().equals(MinionStatus.IDLE) && shouldRunAmbientAction(minionTick)){
             this.ambientAction();
         }
@@ -325,7 +331,7 @@ public abstract class BaseMinion implements IMinion {
             }
         }
 
-        if (getStatus().equals(MinionStatus.ATTACK)){
+        if (!usesIndependentCombatTick() && getStatus().equals(MinionStatus.ATTACK)){
             if (target != null){
                 attack(target);
             }else if (targetLocation !=null){
@@ -336,7 +342,9 @@ public abstract class BaseMinion implements IMinion {
         }
         if (this.spinMode.equals(SpinMode.ALWAYS)){
             rotater.setPitchOnly(true);
-            selfSpin();
+            if (!usesIndependentCombatTick()) {
+                selfSpin();
+            }
         }else {
             rotater.setPitchOnly(false);
         }
@@ -358,7 +366,7 @@ public abstract class BaseMinion implements IMinion {
         return elapsedTicks;
     }
 
-    private void tickAttackCooldown(int elapsedTicks) {
+    protected void tickAttackCooldown(int elapsedTicks) {
         if (attackCooldown > 0) {
             attackCooldown = Math.max(0, attackCooldown - elapsedTicks);
         }

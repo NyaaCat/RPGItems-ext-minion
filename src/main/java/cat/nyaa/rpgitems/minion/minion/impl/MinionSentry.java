@@ -14,6 +14,7 @@ import org.bukkit.util.Vector;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class MinionSentry extends BaseMinion implements ISentry {
+    private static final int TARGET_SEARCH_INTERVAL = 20;
     private final Sentry power;
 
     public MinionSentry(Player player, Sentry power, ItemStack item){
@@ -35,6 +36,7 @@ public class MinionSentry extends BaseMinion implements ISentry {
         this.spinMode = sentryPower.getSpinMode();
         this.spinSpeed = sentryPower.getSpinSpeed().random();
         this.spinSpeedMax = sentryPower.getSpinSpeed().uniformed(1,1);
+        startCombatTask();
         try {
             new BukkitRunnable() {
                 @Override
@@ -95,10 +97,69 @@ public class MinionSentry extends BaseMinion implements ISentry {
     }
 
     private boolean attacking = false;
+    private BukkitRunnable combatTask;
+    private int targetSearchCooldown = ThreadLocalRandom.current().nextInt(1, TARGET_SEARCH_INTERVAL + 1);
 
     @Override
     public void tick(int minionTick) {
         super.tick(minionTick);
+    }
+
+    @Override
+    protected boolean usesIndependentCombatTick() {
+        return true;
+    }
+
+    private void startCombatTask() {
+        if (combatTask != null) {
+            return;
+        }
+        combatTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (isRemoved()) {
+                    cancel();
+                    return;
+                }
+                combatTick();
+            }
+        };
+        combatTask.runTaskTimer(MinionExtensionPlugin.plugin, ThreadLocalRandom.current().nextInt(1, 4), 1);
+    }
+
+    private void combatTick() {
+        if (trackedEntity == null || trackedEntity.isDead()) {
+            return;
+        }
+        tickAttackCooldown(1);
+        if (spinMode.equals(SpinMode.ALWAYS)) {
+            rotater.setPitchOnly(true);
+            selfSpin();
+        } else {
+            rotater.setPitchOnly(false);
+        }
+        if (getStatus().equals(MinionStatus.IDLE)) {
+            if (--targetSearchCooldown <= 0) {
+                targetSearchCooldown = TARGET_SEARCH_INTERVAL;
+                acquirePreferredTarget();
+            }
+            return;
+        }
+        if (!getStatus().equals(MinionStatus.ATTACK)) {
+            return;
+        }
+        if (target != null) {
+            if (target.isDead() || !isValidTarget(target) || !isTargetReachable(target, targetingRange)) {
+                setTarget(null);
+                acquirePreferredTarget();
+                return;
+            }
+            attack(target);
+        } else if (targetLocation != null) {
+            attack(targetLocation);
+        } else {
+            setStatus(MinionStatus.IDLE);
+        }
     }
 
     @Override
@@ -126,6 +187,15 @@ public class MinionSentry extends BaseMinion implements ISentry {
             return;
         }
         new AttackTask(entity).runTaskTimer(MinionExtensionPlugin.plugin, 0, 1);
+    }
+
+    @Override
+    public void remove() {
+        if (combatTask != null) {
+            combatTask.cancel();
+            combatTask = null;
+        }
+        super.remove();
     }
 
     class AttackTask extends BukkitRunnable {
